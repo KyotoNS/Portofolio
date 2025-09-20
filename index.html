@@ -3,155 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Loading Screen</title>
+    <title>Portfolio Loading Screen - Three.js</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
-
         body {
             margin: 0;
-            font-family: 'Poppins', 'Segoe UI', sans-serif;
             overflow: hidden;
+            /* Latar belakang diatur di sini karena canvas akan transparan */
+            background: radial-gradient(ellipse at center, #411d65 0%, #231044 60%, #0b0217 100%);
         }
-
-        .start-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #140525, #411d65);
-            display: flex;
-            justify-content: center;
-            align: items-center;
-            z-index: 100;
-            overflow: hidden;
+        canvas {
+            display: block;
         }
-        
-        #star-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-        }
-
-        .star {
-            position: absolute;
-            border-radius: 50%;
-            animation-name: twinkle;
-            animation-timing-function: ease-in-out;
-            animation-iteration-count: infinite;
-        }
-
-        @keyframes twinkle {
-            0% { opacity: 0; transform: scale(0.5); }
-            50% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0.5); }
-        }
-        
-        .start-container {
-            text-align: center;
-            padding: 20px;
-            z-index: 1;
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
-            100% { transform: translateY(0px); }
-        }
-        
-        /* --- CSS BARU UNTUK VILLA ISOMETRIK --- */
-        .isometric-villa {
-            width: 250px; /* Diperbesar untuk detail */
-            height: 250px;
-        }
-        
     </style>
 </head>
 <body>
-    <div class="start-overlay">
-        <div id="star-container"></div>
+    <!-- Three.js akan menggambar di dalam canvas ini -->
+    <canvas id="bg"></canvas>
 
-        <div class="start-container">
-            <!-- UPDATED: SVG baru untuk villa isometrik yang lebih detail -->
-            <svg class="isometric-villa" viewBox="0 0 200 200">
-                <!-- Base/Tanah -->
-                <polygon points="100,160 150,135 100,110 50,135" fill="rgba(0, 255, 255, 0.1)"/>
-                
-                <!-- Dinding Lantai 1 (Sisi Kanan, lebih gelap) -->
-                <polygon points="100,105 140,85 140,130 100,150" fill="rgba(0, 100, 100, 0.6)" stroke="cyan" stroke-width="0.5"/>
-                <!-- Dinding Lantai 1 (Sisi Kiri, lebih terang) -->
-                <polygon points="60,85 100,105 100,150 60,130" fill="rgba(0, 150, 150, 0.5)" stroke="cyan" stroke-width="0.5"/>
-                
-                <!-- Atap Lantai 1 / Lantai Balkon -->
-                <polygon points="100,105 140,85 100,65 60,85" fill="rgba(0, 180, 180, 0.6)" stroke="cyan" stroke-width="0.5"/>
-                
-                <!-- Dinding Lantai 2 (Sisi Kanan) -->
-                <polygon points="100,65 130,50 130,90 100,105" fill="rgba(0, 120, 120, 0.7)" stroke="cyan" stroke-width="0.5"/>
-                <!-- Dinding Lantai 2 (Sisi Kiri) -->
-                <polygon points="70,50 100,65 100,105 70,90" fill="rgba(0, 170, 170, 0.6)" stroke="cyan" stroke-width="0.5"/>
-
-                <!-- Jendela Lantai 2 -->
-                <polygon points="78,62 92,69 92,83 78,76" fill="rgba(20, 20, 20, 0.5)"/>
-
-                <!-- Atap Lantai 2 -->
-                <polygon points="100,65 130,50 100,35 70,50" fill="rgba(0, 220, 220, 0.7)" stroke="cyan" stroke-width="0.5"/>
-
-                <!-- Pintu -->
-                <polygon points="75,108 88,114 88,135 75,129" fill="rgba(20, 20, 20, 0.5)"/>
-                
-                <!-- Pohon -->
-                <polygon points="55,128 58,126 58,115 55,117" fill="#5D4037"/> <!-- Batang -->
-                <polygon points="56.5,116 50,113 56.5,100 63,113" fill="rgba(0, 200, 150, 0.8)"/> <!-- Daun -->
-
-            </svg>
-        </div>
-    </div>
-
-    <script>
-        function createStars() {
-            const container = document.getElementById('star-container');
-            const numStars = 150; 
-
-            for (let i = 0; i < numStars; i++) {
-                const star = document.createElement('div');
-                star.className = 'star';
-
-                const size = Math.random() * 2.5 + 0.5;
-                star.style.width = `${size}px`;
-                star.style.height = `${size}px`;
-
-                star.style.top = `${Math.random() * 100}%`;
-                star.style.left = `${Math.random() * 100}%`;
-                
-                let starColor;
-                if (Math.random() > 0.3) {
-                    const lightness = Math.random() * 20 + 80;
-                    starColor = `hsl(55, 80%, ${lightness}%)`;
-                } else {
-                    const hue = Math.random() * 360;
-                    starColor = `hsl(${hue}, 100%, 85%)`;
-                }
-                
-                star.style.backgroundColor = starColor;
-                const glowSize = Math.random() * 4 + 2;
-                star.style.boxShadow = `0 0 ${glowSize}px ${glowSize / 2}px ${starColor}`;
-
-
-                const duration = Math.random() * 3 + 2;
-                const delay = Math.random() * 5;
-
-                star.style.animationDuration = `${duration}s`;
-                star.style.animationDelay = `${delay}s`;
-
-                container.appendChild(star);
+    <!-- Import Three.js dari CDN -->
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js"
             }
         }
+    </script>
 
-        createStars();
+    <script type="module">
+        import * as THREE from 'three';
+
+        // 1. Setup Dasar
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            canvas: document.querySelector('#bg'),
+            alpha: true, // Membuat canvas transparan agar background body terlihat
+        });
+
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        camera.position.set(20, 20, 20);
+        camera.lookAt(0, 0, 0);
+
+        // 2. Pencahayaan
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(8, 15, 10);
+        scene.add(directionalLight);
+        
+        // 3. Membuat Platform Kotak (VILLA DIHAPUS)
+        const platformGroup = new THREE.Group();
+        const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x009696 }); // Warna yang sama dengan dinding villa sebelumnya
+        const platformGeometry = new THREE.BoxGeometry(15, 1, 15); // Lebar, tinggi, kedalaman
+        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+        platformGroup.add(platform);
+        scene.add(platformGroup);
+
+        // 4. Membuat Bintang
+        const numStars = 10000;
+
+        function createStarTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 0,
+                canvas.width / 2, canvas.height / 2, canvas.width / 2
+            );
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            return new THREE.CanvasTexture(canvas);
+        }
+        const starTexture = createStarTexture();
+
+        const starGeometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(numStars * 3);
+        const randoms = new Float32Array(numStars); 
+
+        for (let i = 0; i < numStars; i++) {
+            positions[i * 3 + 0] = (Math.random() - 0.5) * 2000;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 2000;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 2000;
+            randoms[i] = Math.random();
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        starGeometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
+
+        const vertexShader = `
+            attribute float aRandom;
+            varying float vRandom;
+            void main() {
+                vRandom = aRandom;
+                vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+                vec4 viewPosition = viewMatrix * modelPosition;
+                gl_Position = projectionMatrix * viewPosition;
+                gl_PointSize = 2.5 + aRandom * 1.5;
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float uTime;
+            uniform sampler2D uTexture;
+            varying float vRandom;
+            void main() {
+                vec4 textureColor = texture2D(uTexture, gl_PointCoord);
+                float twinkle = abs(sin(uTime * (vRandom * 0.5 + 0.2) + vRandom * 10.0));
+                gl_FragColor = vec4(textureColor.rgb, textureColor.a * twinkle);
+            }
+        `;
+
+        const starMaterial = new THREE.ShaderMaterial({
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            uniforms: {
+                uTime: { value: 0.0 },
+                uTexture: { value: starTexture }
+            },
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        // 5. Animasi
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            // Animasi platform mengambang
+            platformGroup.position.y = Math.sin(elapsedTime * 0.5);
+            
+            starMaterial.uniforms.uTime.value = elapsedTime;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
