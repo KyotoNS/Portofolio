@@ -3,451 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My 3D Portfolio - House Theme</title>
+    <title>Portfolio Loading Screen</title>
     <style>
-        /* General styling */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+
         body {
             margin: 0;
-            background-color: #1e1a20;
-            color: #ffffff;
-            font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+            overflow: hidden;
         }
 
-        /* The 3D canvas */
-        .webgl {
+        .start-overlay {
             position: fixed;
             top: 0;
             left: 0;
-            outline: none;
-        }
-
-        /* Loading screen */
-        .loading-screen {
-            position: absolute;
             width: 100%;
             height: 100%;
-            background-color: #1e1a20;
+            background: linear-gradient(135deg, #140525, #411d65);
             display: flex;
             justify-content: center;
-            align-items: center;
+            align: items-center;
             z-index: 100;
-        }
-        .loading-bar {
-            width: 300px;
-            height: 4px;
-            background: #333;
-            border-radius: 2px;
             overflow: hidden;
         }
-        .loading-bar-progress {
-            width: 0%;
+        
+        #star-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
             height: 100%;
-            background: #ffffff;
-            transition: width 0.2s;
+            z-index: 0;
         }
 
-        /* Controls instructions */
-        .controls {
+        .star {
             position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px;
-            border-radius: 12px;
+            border-radius: 50%;
+            animation-name: twinkle;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.5); }
+        }
+        
+        .start-container {
             text-align: center;
-            font-size: 14px;
+            padding: 20px;
+            z-index: 1;
+            animation: float 6s ease-in-out infinite;
         }
-        .controls p { margin: 5px 0; }
-        .controls span {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 2px 6px;
-            border-radius: 4px;
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
         }
-
-        /* Project interaction points */
-        .point {
-            position: absolute;
-            top: 50%;
-            left: 50%;
+        
+        /* --- CSS BARU UNTUK VILLA ISOMETRIK --- */
+        .isometric-villa {
+            width: 250px; /* Diperbesar untuk detail */
+            height: 250px;
         }
-        .point .label {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 15px;
-            border-radius: 8px;
-            color: #fff;
-            white-space: nowrap;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none; /* Make it non-clickable */
-        }
-        /* When a point is visible (car is near) */
-        .point.visible .label {
-            opacity: 1;
-        }
+        
     </style>
 </head>
 <body>
-    <!-- 3D Canvas -->
-    <canvas class="webgl"></canvas>
+    <div class="start-overlay">
+        <div id="star-container"></div>
 
-    <!-- Loading Screen -->
-    <div class="loading-screen">
-        <div class="loading-bar">
-            <div class="loading-bar-progress"></div>
+        <div class="start-container">
+            <!-- UPDATED: SVG baru untuk villa isometrik yang lebih detail -->
+            <svg class="isometric-villa" viewBox="0 0 200 200">
+                <!-- Base/Tanah -->
+                <polygon points="100,160 150,135 100,110 50,135" fill="rgba(0, 255, 255, 0.1)"/>
+                
+                <!-- Dinding Lantai 1 (Sisi Kanan, lebih gelap) -->
+                <polygon points="100,105 140,85 140,130 100,150" fill="rgba(0, 100, 100, 0.6)" stroke="cyan" stroke-width="0.5"/>
+                <!-- Dinding Lantai 1 (Sisi Kiri, lebih terang) -->
+                <polygon points="60,85 100,105 100,150 60,130" fill="rgba(0, 150, 150, 0.5)" stroke="cyan" stroke-width="0.5"/>
+                
+                <!-- Atap Lantai 1 / Lantai Balkon -->
+                <polygon points="100,105 140,85 100,65 60,85" fill="rgba(0, 180, 180, 0.6)" stroke="cyan" stroke-width="0.5"/>
+                
+                <!-- Dinding Lantai 2 (Sisi Kanan) -->
+                <polygon points="100,65 130,50 130,90 100,105" fill="rgba(0, 120, 120, 0.7)" stroke="cyan" stroke-width="0.5"/>
+                <!-- Dinding Lantai 2 (Sisi Kiri) -->
+                <polygon points="70,50 100,65 100,105 70,90" fill="rgba(0, 170, 170, 0.6)" stroke="cyan" stroke-width="0.5"/>
+
+                <!-- Jendela Lantai 2 -->
+                <polygon points="78,62 92,69 92,83 78,76" fill="rgba(20, 20, 20, 0.5)"/>
+
+                <!-- Atap Lantai 2 -->
+                <polygon points="100,65 130,50 100,35 70,50" fill="rgba(0, 220, 220, 0.7)" stroke="cyan" stroke-width="0.5"/>
+
+                <!-- Pintu -->
+                <polygon points="75,108 88,114 88,135 75,129" fill="rgba(20, 20, 20, 0.5)"/>
+                
+                <!-- Pohon -->
+                <polygon points="55,128 58,126 58,115 55,117" fill="#5D4037"/> <!-- Batang -->
+                <polygon points="56.5,116 50,113 56.5,100 63,113" fill="rgba(0, 200, 150, 0.8)"/> <!-- Daun -->
+
+            </svg>
         </div>
     </div>
 
-    <!-- Controls Info -->
-    <div class="controls">
-        <p>Gunakan <span>↑</span> <span>↓</span> untuk bergerak dan <span>←</span> <span>→</span> untuk berbelok</p>
-    </div>
+    <script>
+        function createStars() {
+            const container = document.getElementById('star-container');
+            const numStars = 150; 
 
-    <!-- Project Popups (hidden HTML elements) -->
-    <div class="point point-0">
-        <div class="label">Proyek 1: Aplikasi Web Keren</div>
-    </div>
-    <div class="point point-1">
-        <div class="label">Proyek 2: Desain 3D</div>
-    </div>
-    <div class="point point-2">
-        <div class="label">Proyek 3: Website E-commerce</div>
-    </div>
+            for (let i = 0; i < numStars; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
 
-    <!-- Import libraries from CDN -->
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/",
-            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
-        }
-    }
-    </script>
-    
-    <!-- Main JavaScript Logic -->
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import * as CANNON from 'cannon-es';
+                const size = Math.random() * 2.5 + 0.5;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
 
-        // --- SETUP ---
-        const scene = new THREE.Scene();
-        const world = new CANNON.World({
-            gravity: new CANNON.Vec3(0, -9.82, 0)
-        });
-
-        const sizes = {
-            width: window.innerWidth,
-            height: window.innerHeight
-        };
-
-        const canvas = document.querySelector('canvas.webgl');
-        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-        renderer.setSize(sizes.width, sizes.height);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-
-        const camera = new THREE.PerspectiveCamera(60, sizes.width / sizes.height, 0.1, 100);
-        camera.position.set(0, 8, 15);
-        scene.add(camera);
-
-        // --- LOADING MANAGER ---
-        const loadingManager = new THREE.LoadingManager(
-            () => {
-                const loadingScreen = document.querySelector('.loading-screen');
-                loadingScreen.style.opacity = 0;
-                setTimeout(() => loadingScreen.style.display = 'none', 500);
-            },
-            (itemUrl, itemsLoaded, itemsTotal) => {
-                const progress = itemsLoaded / itemsTotal;
-                const progressBar = document.querySelector('.loading-bar-progress');
-                progressBar.style.width = `${progress * 100}%`;
-            }
-        );
-
-        // --- LIGHTS ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-        scene.add(ambientLight);
-
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        directionalLight.position.set(10, 15, 5);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 1024;
-        directionalLight.shadow.mapSize.height = 1024;
-        scene.add(directionalLight);
-
-        // --- MATERIALS & GEOMETRIES ---
-        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0, roughness: 0.5 });
-        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
-        const projectBoardMaterial = new THREE.MeshStandardMaterial({ color: 0x007bff });
-        const carBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.5, roughness: 0.5 });
-        const carWheelMaterial = new THREE.MeshStandardMaterial({ color: 0x111111 });
-
-        // --- ENVIRONMENT ---
-        // Floor
-        const floor = new THREE.Mesh(
-            new THREE.PlaneGeometry(50, 50),
-            floorMaterial
-        );
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        scene.add(floor);
-        
-        const floorShape = new CANNON.Plane();
-        const floorBody = new CANNON.Body({ mass: 0, material: { friction: 0.3, restitution: 0.3 } });
-        floorBody.addShape(floorShape);
-        floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(-1, 0, 0), Math.PI * 0.5);
-        world.addBody(floorBody);
-
-        // House
-        const house = new THREE.Group();
-        const mainWall = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 0.5), wallMaterial);
-        mainWall.position.set(0, 2, -10);
-        mainWall.castShadow = true;
-        house.add(mainWall);
-        scene.add(house);
-        
-        const wallShape = new CANNON.Box(new CANNON.Vec3(5, 2, 0.25));
-        const wallBody = new CANNON.Body({ mass: 0 });
-        wallBody.addShape(wallShape);
-        wallBody.position.copy(mainWall.position);
-        world.addBody(wallBody);
-        
-        // --- INTERACTIVE POINTS ---
-        const points = [
-            { position: new THREE.Vector3(-10, 2, -8), element: document.querySelector('.point-0') },
-            { position: new THREE.Vector3(0, 2, -8), element: document.querySelector('.point-1') },
-            { position: new THREE.Vector3(10, 2, -8), element: document.querySelector('.point-2') }
-        ];
-
-        points.forEach(point => {
-            const projectBoard = new THREE.Mesh(
-                new THREE.BoxGeometry(4, 2.5, 0.2),
-                projectBoardMaterial
-            );
-            projectBoard.position.copy(point.position);
-            projectBoard.castShadow = true;
-            scene.add(projectBoard);
-
-            const boardShape = new CANNON.Box(new CANNON.Vec3(2, 1.25, 0.1));
-            const boardBody = new CANNON.Body({ mass: 0 });
-            boardBody.addShape(boardShape);
-            boardBody.position.copy(point.position);
-            world.addBody(boardBody);
-        });
-
-        // --- CAR ---
-        // Visual
-        const car = new THREE.Group();
-        const carBodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 2.4), carBodyMaterial);
-        carBodyMesh.castShadow = true;
-        car.add(carBodyMesh);
-        scene.add(car);
-
-        // Physics
-        const carChassisShape = new CANNON.Box(new CANNON.Vec3(0.6, 0.3, 1.2));
-        const carChassisBody = new CANNON.Body({ mass: 150 });
-        carChassisBody.addShape(carChassisShape);
-        carChassisBody.position.set(0, 2, 0);
-
-        const vehicle = new CANNON.RaycastVehicle({
-            chassisBody: carChassisBody,
-        });
-
-        const wheelOptions = {
-            radius: 0.3,
-            directionLocal: new CANNON.Vec3(0, -1, 0),
-            suspensionStiffness: 30,
-            suspensionRestLength: 0.3,
-            frictionSlip: 5,
-            dampingRelaxation: 2.3,
-            dampingCompression: 4.4,
-            maxSuspensionForce: 100000,
-            rollInfluence: 0.01,
-            axleLocal: new CANNON.Vec3(0, 0, 1),
-            chassisConnectionPointLocal: new CANNON.Vec3(1, 0, 1),
-            maxSuspensionTravel: 0.3,
-            customSlidingRotationalSpeed: -30,
-            useCustomSlidingRotationalSpeed: true,
-        };
-
-        // Front-left
-        wheelOptions.chassisConnectionPointLocal.set(0.5, 0, 0.85);
-        vehicle.addWheel(wheelOptions);
-        // Front-right
-        wheelOptions.chassisConnectionPointLocal.set(-0.5, 0, 0.85);
-        vehicle.addWheel(wheelOptions);
-        // Back-left
-        wheelOptions.chassisConnectionPointLocal.set(0.5, 0, -0.85);
-        vehicle.addWheel(wheelOptions);
-        // Back-right
-        wheelOptions.chassisConnectionPointLocal.set(-0.5, 0, -0.85);
-        vehicle.addWheel(wheelOptions);
-        
-        vehicle.addToWorld(world);
-
-        const wheelBodies = [];
-        const wheelMeshes = [];
-        vehicle.wheelInfos.forEach(wheel => {
-            const cylinderShape = new CANNON.Cylinder(wheel.radius, wheel.radius, wheel.radius / 2, 20);
-            const wheelBody = new CANNON.Body({ mass: 1 });
-            wheelBody.addShape(cylinderShape);
-            wheelBodies.push(wheelBody);
-            
-            const wheelMesh = new THREE.Mesh(new THREE.CylinderGeometry(wheel.radius, wheel.radius, 0.2, 32), carWheelMaterial);
-            wheelMesh.castShadow = true;
-            wheelMesh.rotation.x = -Math.PI/2;
-            wheelMeshes.push(wheelMesh);
-            scene.add(wheelMesh);
-        });
-
-        // --- CONTROLS ---
-        const controlsState = {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false
-        };
-
-        window.addEventListener('keydown', (e) => {
-            switch (e.key) {
-                case 'ArrowUp':
-                case 'w':
-                    controlsState.forward = true;
-                    break;
-                case 'ArrowDown':
-                case 's':
-                    controlsState.backward = true;
-                    break;
-                case 'ArrowLeft':
-                case 'a':
-                    controlsState.left = true;
-                    break;
-                case 'ArrowRight':
-                case 'd':
-                    controlsState.right = true;
-                    break;
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            switch (e.key) {
-                case 'ArrowUp':
-                case 'w':
-                    controlsState.forward = false;
-                    break;
-                case 'ArrowDown':
-                case 's':
-                    controlsState.backward = false;
-                    break;
-                case 'ArrowLeft':
-                case 'a':
-                    controlsState.left = false;
-                    break;
-                case 'ArrowRight':
-                case 'd':
-                    controlsState.right = false;
-                    break;
-            }
-        });
-
-        // --- RESIZE ---
-        window.addEventListener('resize', () => {
-            sizes.width = window.innerWidth;
-            sizes.height = window.innerHeight;
-            camera.aspect = sizes.width / sizes.height;
-            camera.updateProjectionMatrix();
-            renderer.setSize(sizes.width, sizes.height);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        });
-
-        // --- ANIMATION LOOP ---
-        const clock = new THREE.Clock();
-        let lastTime = 0;
-
-        const tick = () => {
-            const elapsedTime = clock.getElapsedTime();
-            const deltaTime = elapsedTime - lastTime;
-            lastTime = elapsedTime;
-
-            // Update physics
-            world.step(1 / 60, deltaTime, 3);
-            
-            // Update car visual from physics
-            car.position.copy(carChassisBody.position);
-            car.quaternion.copy(carChassisBody.quaternion);
-
-            for (let i = 0; i < vehicle.wheelInfos.length; i++) {
-                vehicle.updateWheelTransform(i);
-                const t = vehicle.wheelInfos[i].worldTransform;
-                wheelMeshes[i].position.copy(t.position);
-                wheelMeshes[i].quaternion.copy(t.quaternion);
-            }
-
-            // Update car controls
-            const maxSteerVal = 0.5;
-            const maxForce = 1000;
-            
-            vehicle.setBrake(0, 0); vehicle.setBrake(0, 1);
-            vehicle.setBrake(0, 2); vehicle.setBrake(0, 3);
-
-            if (controlsState.forward) {
-                vehicle.applyEngineForce(-maxForce, 2);
-                vehicle.applyEngineForce(-maxForce, 3);
-            } else if (controlsState.backward) {
-                vehicle.applyEngineForce(maxForce, 2);
-                vehicle.applyEngineForce(maxForce, 3);
-            } else {
-                vehicle.applyEngineForce(0, 2);
-                vehicle.applyEngineForce(0, 3);
-            }
-
-            if (controlsState.left) {
-                vehicle.setSteeringValue(maxSteerVal, 0);
-                vehicle.setSteeringValue(maxSteerVal, 1);
-            } else if (controlsState.right) {
-                vehicle.setSteeringValue(-maxSteerVal, 0);
-                vehicle.setSteeringValue(-maxSteerVal, 1);
-            } else {
-                vehicle.setSteeringValue(0, 0);
-                vehicle.setSteeringValue(0, 1);
-            }
-
-            // Update camera to follow car
-            const carPosition = car.position;
-            const cameraOffset = new THREE.Vector3(0, 4, 8);
-            const cameraTarget = new THREE.Vector3();
-            
-            cameraTarget.copy(carPosition);
-            cameraOffset.applyQuaternion(car.quaternion);
-            cameraTarget.add(cameraOffset);
-
-            camera.position.lerp(cameraTarget, 0.1);
-            camera.lookAt(car.position);
-
-            // Update interactive points
-            points.forEach(point => {
-                const screenPosition = point.position.clone().project(camera);
-                point.element.style.transform = `translate(${screenPosition.x * sizes.width * 0.5}px, ${-screenPosition.y * sizes.height * 0.5}px)`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.left = `${Math.random() * 100}%`;
                 
-                const distance = point.position.distanceTo(car.position);
-                if (distance < 5) {
-                    point.element.classList.add('visible');
+                let starColor;
+                if (Math.random() > 0.3) {
+                    const lightness = Math.random() * 20 + 80;
+                    starColor = `hsl(55, 80%, ${lightness}%)`;
                 } else {
-                    point.element.classList.remove('visible');
+                    const hue = Math.random() * 360;
+                    starColor = `hsl(${hue}, 100%, 85%)`;
                 }
-            });
+                
+                star.style.backgroundColor = starColor;
+                const glowSize = Math.random() * 4 + 2;
+                star.style.boxShadow = `0 0 ${glowSize}px ${glowSize / 2}px ${starColor}`;
 
-            // Render
-            renderer.render(scene, camera);
-            requestAnimationFrame(tick);
-        };
 
-        tick();
+                const duration = Math.random() * 3 + 2;
+                const delay = Math.random() * 5;
 
+                star.style.animationDuration = `${duration}s`;
+                star.style.animationDelay = `${delay}s`;
+
+                container.appendChild(star);
+            }
+        }
+
+        createStars();
     </script>
 </body>
 </html>
+
