@@ -48,22 +48,22 @@
         const iconPaths = [
             // 1. Sun (Fire)
             "M0,-20 Q15,-15 10,0 Q5,15 0,20 Q-5,15 -10,0 Q-15,-15 0,-20 Z M0,-10 Q5,-5 0,0 Q-5,-5 0,-10 Z",
-            // 2. Mercury (Water)
-            "M-15,5 Q-5,15 0,5 Q5,-5 -5,-15 M5,15 Q15,5 10,-5",
+            // 2. Mercury (Water) - Symmetrically balanced
+            "M-15,5 Q-5,15 0,5 Q5,-5 -5,-15 M15,5 Q5,15 0,5 Q-5,-5 5,-15",
             // 3. Venus (Anemo) - Adjusted for vertical centering
             "M0,-17.5 L15,2.5 L0,7.5 L-15,2.5 Z M-8,-2.5 L0,17.5 L8,-2.5",
-            // 4. Earth (Electro) - Adjusted for vertical centering
-            "M0,-2.5 A15,15 0 0,1 -15,12.5 M0,-2.5 A10,10 0 0,1 10,-12.5 M-5,-7.5 L5,2.5",
-            // 5. Mars (Dendro) - Adjusted for vertical centering
-            "M0,-17.5 C20,-7.5 10,17.5 0,12.5 C-10,17.5 -20,-7.5 0,-17.5 Z",
-            // 6. Jupiter (Cryo)
-            "M0,-20 L0,20 M-17,-10 L17,10 M-17,10 L17,-10 M-10,-17 L10,17 M-10,17 L10,-17",
-            // 7. Saturn (Geo)
-            "M0,-20 L20,0 L0,20 L-20,0 Z M0,-10 L10,0 L0,10 L-10,0 Z",
-            // 8. Uranus
-            "M0,0 A15,15 0 1,0 0,1 M-15,0 L15,0 M0,-15 L0,15",
-            // 9. Neptune
-            "M-15,-15 L15,15 M-15,15 L15,-15 M0,-20 L0,20"
+            // 4. Earth (Electro) - Redrawn for better balance and centering
+            "M-2.5,15 A15,15 0 0,0 15,-2.5 M-15,2.5 A10,10 0 0,1 2.5,-15 M-10,-10 L5,5",
+            // 5. Mars (Dendro) - Width corrected for visual balance
+            "M0,-17.5 C15,-7.5 8,17.5 0,12.5 C-8,17.5 -15,-7.5 0,-17.5 Z",
+            // 6. Jupiter (Cryo) - Corrected width for visual balance
+            "M0,-20 L0,20 M-15,-10 L15,10 M-15,10 L15,-10 M-9,-17 L9,17 M-9,17 L9,-17",
+            // 7. Saturn (Geo) - Corrected width for visual balance
+            "M0,-20 L17,0 L0,20 L-17,0 Z M0,-10 L8.5,0 L0,10 L-8.5,0 Z",
+            // 8. Uranus - Corrected width for visual balance
+            "M0,0 A13,13 0 1,0 0,1 M-13,0 L13,0 M0,-15 L0,15",
+            // 9. Neptune - Corrected width for visual balance
+            "M-13,-13 L13,13 M-13,13 L13,-13 M0,-20 L0,20"
         ];
 
         // --- Initialization ---
@@ -162,7 +162,14 @@
                 const inactiveColor = 'rgba(255, 255, 255, 0.2)';
                 
                 ctx.save();
-                ctx.translate(startX + iconSize / 2, y);
+
+                let finalX = startX + iconSize / 2;
+                // Geser ikon Uranus (indeks 7) 10 piksel ke kanan
+                if (i === 7) {
+                    finalX += 10;
+                }
+
+                ctx.translate(finalX, y);
                 ctx.scale(0.8, 0.8); // Make icons a bit smaller
 
                 const path = new Path2D(pathString);
@@ -182,12 +189,11 @@
 
                 ctx.restore();
                 startX += iconSize + spacing;
+
+                // Removed the special spacing rule as it's no longer needed
             });
 
-             // Loading Text
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '16px Segoe UI';
-            ctx.fillText(`System Initializing... ${Math.floor(loadingProgress)}%`, width / 2, height - 20);
+             // Loading Text has been removed from here.
         }
 
         // --- Animation Loop ---
@@ -217,6 +223,10 @@
     </script>
 </body>
 </html>
+
+
+
+
 
 
 
