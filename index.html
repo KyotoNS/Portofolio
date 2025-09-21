@@ -171,36 +171,47 @@
         }
 
         function create3DStars() {
-            const starGeometry = new THREE.BufferGeometry();
-            const starMaterial = new THREE.PointsMaterial({
-                size: 2,
-                sizeAttenuation: true,
-                transparent: true,
-                alphaTest: 0.5,
-                map: createStarTexture(),
-                vertexColors: true // Mengaktifkan warna per-vertex
-            });
+            // Helper function to create a layer of stars
+            const createStarLayer = (count, size, hueRange) => {
+                const starGeometry = new THREE.BufferGeometry();
+                const starMaterial = new THREE.PointsMaterial({
+                    size: size, // Gunakan ukuran yang diberikan
+                    sizeAttenuation: true,
+                    transparent: true,
+                    alphaTest: 0.5,
+                    map: createStarTexture(),
+                    vertexColors: true
+                });
 
-            const starVertices = [];
-            const starColors = [];
+                const starVertices = [];
+                const starColors = [];
+                const [hueStart, hueEnd] = hueRange;
+                const hueSpan = hueEnd - hueStart;
 
-            for (let i = 0; i < 15000; i++) {
-                const x = (Math.random() - 0.5) * 2000;
-                const y = (Math.random() - 0.5) * 2000;
-                const z = (Math.random() - 0.5) * 2000;
-                starVertices.push(x, y, z);
+                for (let i = 0; i < count; i++) {
+                    const x = (Math.random() - 0.5) * 2000;
+                    const y = (Math.random() - 0.5) * 2000;
+                    const z = (Math.random() - 0.5) * 2000;
+                    starVertices.push(x, y, z);
 
-                const color = new THREE.Color();
-                // Membuat warna antara putih, biru muda, dan kuning muda
-                color.setHSL(Math.random() * 0.2 + 0.55, 0.7, 0.8); 
-                starColors.push(color.r, color.g, color.b);
-            }
+                    const color = new THREE.Color();
+                    const hue = hueStart + Math.random() * hueSpan;
+                    color.setHSL(hue, 0.8, 0.7);
+                    starColors.push(color.r, color.g, color.b);
+                }
 
-            starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-            starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
-            
-            const stars = new THREE.Points(starGeometry, starMaterial);
-            scene.add(stars);
+                starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+                starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+
+                const stars = new THREE.Points(starGeometry, starMaterial);
+                scene.add(stars);
+            };
+
+            // Membuat beberapa lapisan bintang dengan ukuran dan warna berbeda untuk variasi
+            createStarLayer(200000, 0.5, [0.5, 0.7]); // Bintang sangat kecil (biru/ungu)
+            createStarLayer(150000, 1.0, [0.0, 0.15]); // Bintang kecil (merah/oranye)
+            createStarLayer(100000, 1.5, [0.16, 0.3]); // Bintang sedang (kuning/hijau)
+            createStarLayer(50000, 2.0, [0.7, 0.9]);   // Bintang agak besar (ungu/merah muda)
         }
 
 
