@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Loading Screen - Three.js</title>
+    <title>Solar System Loader</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            /* Latar belakang diatur di sini karena canvas akan transparan */
-            background: radial-gradient(ellipse at center, #411d65 0%, #231044 60%, #0b0217 100%);
+            background: #0b0217;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
         }
         canvas {
             display: block;
@@ -17,148 +19,204 @@
     </style>
 </head>
 <body>
-    <!-- Three.js akan menggambar di dalam canvas ini -->
-    <canvas id="bg"></canvas>
+    <canvas id="sceneCanvas"></canvas>
 
-    <!-- Import Three.js dari CDN -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js"
-            }
-        }
-    </script>
+    <script>
+        const canvas = document.getElementById('sceneCanvas');
+        const ctx = canvas.getContext('2d');
 
-    <script type="module">
-        import * as THREE from 'three';
+        let width, height;
+        let stars = [];
+        const numStars = 500;
+        let time = 0;
+        let loadingProgress = 0; // The new loading progress variable
 
-        // 1. Setup Dasar
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({
-            canvas: document.querySelector('#bg'),
-            alpha: true, // Membuat canvas transparan agar background body terlihat
-        });
-
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-
-        camera.position.set(20, 20, 20);
-        camera.lookAt(0, 0, 0);
-
-        // 2. Pencahayaan
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(8, 15, 10);
-        scene.add(directionalLight);
+        // --- Solar System Data ---
+        const sun = { name: 'Sun', color: 'rgba(255, 223, 100, 1)', radius: 25, glow: 'rgba(255, 200, 0, 0.5)' };
+        const planets = [
+            { name: 'Mercury', color: '#B5A7A2', radius: 4, orbitRadius: 60, speed: 0.02 },
+            { name: 'Venus', color: '#E8B36F', radius: 7, orbitRadius: 90, speed: 0.015 },
+            { name: 'Earth', color: '#6B93D6', radius: 8, orbitRadius: 130, speed: 0.01 },
+            { name: 'Mars', color: '#C1440E', radius: 6, orbitRadius: 180, speed: 0.008 },
+            { name: 'Jupiter', color: '#D8CA9D', radius: 15, orbitRadius: 240, speed: 0.005 },
+            { name: 'Saturn', color: '#C7A585', radius: 12, orbitRadius: 310, speed: 0.003, ring: true },
+            { name: 'Uranus', color: '#A9D0F5', radius: 10, orbitRadius: 370, speed: 0.002 },
+            { name: 'Neptune', color: '#3F5EAB', radius: 10, orbitRadius: 430, speed: 0.001 },
+        ];
         
-        // 3. Membuat Platform Kotak (VILLA DIHAPUS)
-        const platformGroup = new THREE.Group();
-        const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x009696 }); // Warna yang sama dengan dinding villa sebelumnya
-        const platformGeometry = new THREE.BoxGeometry(15, 1, 15); // Lebar, tinggi, kedalaman
-        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-        platformGroup.add(platform);
-        scene.add(platformGroup);
+        // Simplified SVG-like paths for the 9 loading icons (Sun + 8 Planets)
+        const iconPaths = [
+            // 1. Sun (Fire)
+            "M0,-20 Q15,-15 10,0 Q5,15 0,20 Q-5,15 -10,0 Q-15,-15 0,-20 Z M0,-10 Q5,-5 0,0 Q-5,-5 0,-10 Z",
+            // 2. Mercury (Water)
+            "M-15,5 Q-5,15 0,5 Q5,-5 -5,-15 M5,15 Q15,5 10,-5",
+            // 3. Venus (Anemo) - Adjusted for vertical centering
+            "M0,-17.5 L15,2.5 L0,7.5 L-15,2.5 Z M-8,-2.5 L0,17.5 L8,-2.5",
+            // 4. Earth (Electro) - Adjusted for vertical centering
+            "M0,-2.5 A15,15 0 0,1 -15,12.5 M0,-2.5 A10,10 0 0,1 10,-12.5 M-5,-7.5 L5,2.5",
+            // 5. Mars (Dendro) - Adjusted for vertical centering
+            "M0,-17.5 C20,-7.5 10,17.5 0,12.5 C-10,17.5 -20,-7.5 0,-17.5 Z",
+            // 6. Jupiter (Cryo)
+            "M0,-20 L0,20 M-17,-10 L17,10 M-17,10 L17,-10 M-10,-17 L10,17 M-10,17 L10,-17",
+            // 7. Saturn (Geo)
+            "M0,-20 L20,0 L0,20 L-20,0 Z M0,-10 L10,0 L0,10 L-10,0 Z",
+            // 8. Uranus
+            "M0,0 A15,15 0 1,0 0,1 M-15,0 L15,0 M0,-15 L0,15",
+            // 9. Neptune
+            "M-15,-15 L15,15 M-15,15 L15,-15 M0,-20 L0,20"
+        ];
 
-        // 4. Membuat Bintang
-        const numStars = 10000;
-
-        function createStarTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const context = canvas.getContext('2d');
-            const gradient = context.createRadialGradient(
-                canvas.width / 2, canvas.height / 2, 0,
-                canvas.width / 2, canvas.height / 2, canvas.width / 2
-            );
-            gradient.addColorStop(0, 'rgba(255,255,255,1)');
-            gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)');
-            gradient.addColorStop(1, 'rgba(255,255,255,0)');
-            context.fillStyle = gradient;
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            return new THREE.CanvasTexture(canvas);
+        // --- Initialization ---
+        function setup() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            createStars();
         }
-        const starTexture = createStarTexture();
 
-        const starGeometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(numStars * 3);
-        const randoms = new Float32Array(numStars); 
-
-        for (let i = 0; i < numStars; i++) {
-            positions[i * 3 + 0] = (Math.random() - 0.5) * 2000;
-            positions[i * 3 + 1] = (Math.random() - 0.5) * 2000;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 2000;
-            randoms[i] = Math.random();
+        function createStars() {
+            stars = [];
+            for (let i = 0; i < numStars; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.5 + 0.5,
+                    alpha: Math.random(),
+                    twinkleSpeed: Math.random() * 0.03 + 0.01
+                });
+            }
         }
-        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        starGeometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
-
-        const vertexShader = `
-            attribute float aRandom;
-            varying float vRandom;
-            void main() {
-                vRandom = aRandom;
-                vec4 modelPosition = modelMatrix * vec4(position, 1.0);
-                vec4 viewPosition = viewMatrix * modelPosition;
-                gl_Position = projectionMatrix * viewPosition;
-                gl_PointSize = 2.5 + aRandom * 1.5;
+        
+        // --- Drawing Helpers ---
+        function drawStars() {
+            for (const star of stars) {
+                star.alpha = Math.abs(Math.sin(time * star.twinkleSpeed));
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.fill();
             }
-        `;
+        }
 
-        const fragmentShader = `
-            uniform float uTime;
-            uniform sampler2D uTexture;
-            varying float vRandom;
-            void main() {
-                vec4 textureColor = texture2D(uTexture, gl_PointCoord);
-                float twinkle = abs(sin(uTime * (vRandom * 0.5 + 0.2) + vRandom * 10.0));
-                gl_FragColor = vec4(textureColor.rgb, textureColor.a * twinkle);
-            }
-        `;
+        // --- Main Drawing Functions ---
+        function drawSolarSystem() {
+            ctx.save();
+            ctx.translate(width / 2, height / 2 - 50);
 
-        const starMaterial = new THREE.ShaderMaterial({
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader,
-            uniforms: {
-                uTime: { value: 0.0 },
-                uTexture: { value: starTexture }
-            },
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-        });
+            // Draw Orbits
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            planets.forEach((planet, i) => {
+                 if (loadingProgress > (i + 1) * (100 / 9)) {
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, planet.orbitRadius, planet.orbitRadius, 0, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+            });
 
-        const stars = new THREE.Points(starGeometry, starMaterial);
-        scene.add(stars);
+            // Draw Sun
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = sun.glow;
+            ctx.fillStyle = sun.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, sun.radius, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.shadowBlur = 0;
 
-        // 5. Animasi
-        const clock = new THREE.Clock();
+            // Draw Planets
+            planets.forEach((planet, i) => {
+                if (loadingProgress > (i + 1) * (100 / 9)) {
+                    const angle = time * planet.speed;
+                    const x = planet.orbitRadius * Math.cos(angle);
+                    const y = planet.orbitRadius * Math.sin(angle);
 
+                    ctx.fillStyle = planet.color;
+                    ctx.beginPath();
+                    ctx.arc(x, y, planet.radius, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    if (planet.ring) {
+                        ctx.strokeStyle = planet.color;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.ellipse(x, y, planet.radius * 2, planet.radius * 0.5, Math.PI / 4, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    }
+                }
+            });
+
+            ctx.restore();
+        }
+
+        function drawLoadingIcons() {
+            const iconSize = 25;
+            const numIcons = 9;
+            const spacing = 30;
+            const totalWidth = numIcons * iconSize + (numIcons - 1) * spacing;
+            let startX = (width - totalWidth) / 2;
+            const y = height - 60;
+
+            iconPaths.forEach((pathString, i) => {
+                const step = 100 / numIcons;
+                const isActive = loadingProgress >= i * step;
+                const activeColor = 'rgba(255, 223, 100, 1)';
+                const inactiveColor = 'rgba(255, 255, 255, 0.2)';
+                
+                ctx.save();
+                ctx.translate(startX + iconSize / 2, y);
+                ctx.scale(0.8, 0.8); // Make icons a bit smaller
+
+                const path = new Path2D(pathString);
+                ctx.strokeStyle = isActive ? activeColor : inactiveColor;
+                ctx.lineWidth = 2;
+                ctx.stroke(path);
+
+                // Fill logic
+                if (isActive) {
+                    const fillAmount = (loadingProgress - i * step) / step;
+                    ctx.save();
+                    ctx.clip(path);
+                    ctx.fillStyle = activeColor;
+                    ctx.fillRect(-iconSize, iconSize - (fillAmount * iconSize * 2), iconSize * 2, iconSize * 2);
+                    ctx.restore();
+                }
+
+                ctx.restore();
+                startX += iconSize + spacing;
+            });
+
+             // Loading Text
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '16px Segoe UI';
+            ctx.fillText(`System Initializing... ${Math.floor(loadingProgress)}%`, width / 2, height - 20);
+        }
+
+        // --- Animation Loop ---
         function animate() {
-            requestAnimationFrame(animate);
+            time += 1;
+            if (loadingProgress < 100) {
+                loadingProgress += 0.25; // Speed of loading
+            } else {
+                loadingProgress = 100;
+            }
 
-            const elapsedTime = clock.getElapsedTime();
-
-            // Animasi platform mengambang
-            platformGroup.position.y = Math.sin(elapsedTime * 0.5);
+            ctx.clearRect(0, 0, width, height);
             
-            starMaterial.uniforms.uTime.value = elapsedTime;
-
-            renderer.render(scene, camera);
+            drawStars();
+            drawSolarSystem();
+            drawLoadingIcons();
+            
+            requestAnimationFrame(animate);
         }
 
-        animate();
+        // --- Event Listeners ---
+        window.addEventListener('resize', setup);
 
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        // --- Start ---
+        setup();
+        animate();
     </script>
 </body>
 </html>
+
+
 
