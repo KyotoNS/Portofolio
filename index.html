@@ -88,8 +88,11 @@
         planets.forEach(p => {
             p.originalOrbitRadius = p.orbitRadius;
             p.originalSpeed = p.speed;
-            p.ellipseFactor = 1.0; // Properti baru untuk animasi cone
+            p.ellipseFactor = 1.0; 
         });
+
+        let particles = []; // Array untuk partikel ledakan
+        let shockwave = { radius: 0, alpha: 0, lineWidth: 0 }; // Objek untuk shockwave
 
         const iconPaths = ["M0,-20 Q15,-15 10,0 Q5,15 0,20 Q-5,15 -10,0 Q-15,-15 0,-20 Z M0,-10 Q5,-5 0,0 Q-5,-5 0,-10 Z","M-15,5 Q-5,15 0,5 Q5,-5 -5,-15 M15,5 Q5,15 0,5 Q-5,-5 5,-15","M0,-17.5 L15,2.5 L0,7.5 L-15,2.5 Z M-8,-2.5 L0,17.5 L8,-2.5","M-2.5,15 A15,15 0 0,0 15,-2.5 M-15,2.5 A10,10 0 0,1 2.5,-15 M-10,-10 L5,5","M0,-17.5 C15,-7.5 8,17.5 0,12.5 C-8,17.5 -15,-7.5 0,-17.5 Z","M0,-20 L0,20 M-15,-10 L15,10 M-15,10 L15,-10 M-9,-17 L9,17 M-9,17 L9,-17","M0,-20 L17,0 L0,20 L-17,0 Z M0,-10 L8.5,0 L0,10 L-8.5,0 Z","M0,0 A13,13 0 1,0 0,1 M-13,0 L13,0 M0,-15 L0,15","M-13,-13 L13,13 M-13,13 L13,-13 M0,-20 L0,20"];
         
@@ -143,12 +146,11 @@
                     }
                 })
             } 
-            const sunWarpSize=animationState==='warping'?width*warpFactor*1.5:0; 
-            ctx.shadowBlur = sun.shadowBlur + (sun.radius - sun.originalRadius) * 5 + (warpFactor*100);
+            ctx.shadowBlur = sun.shadowBlur;
             ctx.shadowColor=sun.glow; 
             ctx.fillStyle=sun.color; 
             ctx.beginPath(); 
-            ctx.arc(0,0,sun.radius+sunWarpSize,0,2*Math.PI); 
+            ctx.arc(0,0,sun.radius,0,2*Math.PI); 
             ctx.fill(); 
             ctx.shadowBlur=0; 
             planets.forEach((p,i)=>{
@@ -158,20 +160,13 @@
                         y=p.orbitRadius*Math.sin(angle) / p.ellipseFactor,
                         radius=p.radius; 
                     ctx.globalAlpha=1; 
-                    if(animationState==='warping'){
-                        const warpScale=1+warpFactor*3; 
-                        x*=warpScale; 
-                        y*=warpScale; 
-                        radius*=warpScale; 
-                        ctx.globalAlpha=1-warpFactor
-                    } 
                     ctx.fillStyle=p.color; 
                     ctx.beginPath(); 
                     ctx.arc(x,y,radius,0,2*Math.PI); 
                     ctx.fill(); 
                     if(p.ring){
                         ctx.strokeStyle=p.color; 
-                        ctx.lineWidth=2*(animationState==='warping'?1+warpFactor*3:1); 
+                        ctx.lineWidth=2; 
                         ctx.beginPath(); 
                         ctx.ellipse(x,y,radius*2,radius*0.5,Math.PI/4,0,2*Math.PI); 
                         ctx.stroke()
@@ -180,6 +175,56 @@
             }); 
             ctx.globalAlpha=1; 
             ctx.restore(); 
+        }
+
+        function drawParticles() {
+            if (particles.length === 0) return;
+            ctx.save();
+            ctx.translate(width / 2, height / 2 - 50);
+            particles.forEach(p => {
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.restore();
+        }
+
+        function drawShockwave() {
+            if (shockwave.alpha <= 0) return;
+            ctx.save();
+            ctx.translate(width / 2, height / 2 - 50);
+            ctx.beginPath();
+            ctx.arc(0, 0, shockwave.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 223, 100, ${shockwave.alpha})`;
+            ctx.lineWidth = shockwave.lineWidth;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function createExplosion(centerX, centerY, color, count, speedRange) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * (speedRange[1] - speedRange[0]) + speedRange[0];
+                const particle = {
+                    x: centerX,
+                    y: centerY,
+                    radius: Math.random() * 2.5 + 1,
+                    alpha: 1,
+                    color: color
+                };
+                particles.push(particle);
+
+                gsap.to(particle, {
+                    x: centerX + Math.cos(angle) * speed,
+                    y: centerY + Math.sin(angle) * speed,
+                    alpha: 0,
+                    duration: 1.5,
+                    ease: 'power3.out',
+                    delay: Math.random() * 0.2
+                });
+            }
         }
 
         function drawLoadingIcons() { if(animationState==='warping'||animationState==='faded')return; const iconSize=25, numIcons=9, spacing=30, totalWidth=numIcons*iconSize+(numIcons-1)*spacing; let startX=(width-totalWidth)/2; const y=height-60; iconPaths.forEach((pathString,i)=>{const step=100/numIcons, isActive=loadingProgress>=i*step, activeColor='rgba(255,223,100,1)', inactiveColor='rgba(255,255,255,0.2)'; ctx.save(); let finalX=startX+iconSize/2; if(i===7)finalX+=10; ctx.translate(finalX,y); ctx.scale(0.8,0.8); const path=new Path2D(pathString); ctx.strokeStyle=isActive?activeColor:inactiveColor; ctx.lineWidth=2; ctx.stroke(path); if(isActive){const fillAmount=(loadingProgress-i*step)/step; ctx.save(); ctx.clip(path); ctx.fillStyle=activeColor; ctx.fillRect(-iconSize,iconSize-(fillAmount*iconSize*2),iconSize*2,iconSize*2); ctx.restore()} ctx.restore(); startX+=iconSize+spacing;}); }
@@ -194,25 +239,19 @@
                     loadingProgress = 100;
                     if (assetsLoaded && animationState !== 'loaded') {
                         animationState = 'loaded';
-                        // **Animasi Ledakan Solar Pulse Baru**
-                        sunPulseAnimation = gsap.timeline({ repeat: -1, repeatDelay: 1.5 });
-                        sunPulseAnimation.to(sun, {
-                            radius: sun.originalRadius * 2.5,
-                            shadowBlur: 80,
-                            duration: 0.2,
-                            ease: 'power3.out'
-                        }).to(sun, {
-                            radius: sun.originalRadius,
-                            shadowBlur: 20,
+                        sunPulseAnimation = gsap.to(sun, {
+                            radius: sun.originalRadius * 1.2,
+                            shadowBlur: 40,
                             duration: 2.5,
-                            ease: 'power2.out'
+                            ease: 'sine.inOut',
+                            yoyo: true,
+                            repeat: -1
                         });
                     }
                 }
             } else if (animationState === 'warping') { 
-                if (sunPulseAnimation) sunPulseAnimation.kill();
                 if (warpFactor < 1) { 
-                    warpFactor += 0.01; 
+                    warpFactor += 0.02; 
                 } else { 
                     warpFactor = 1; 
                     animationState = 'faded'; 
@@ -223,11 +262,49 @@
             ctx.clearRect(0, 0, width, height); 
             draw2DStars(); 
             drawSolarSystem(); 
+            drawParticles();
+            drawShockwave();
             drawLoadingIcons(); 
             requestAnimationFrame(animateLoader); 
         }
 
-        function handleLoaderClick(e) { if(animationState!=='loaded')return; const rect=loaderCanvas.getBoundingClientRect(), mouseX=e.clientX-rect.left, mouseY=e.clientY-rect.top, sunScreenX=width/2, sunScreenY=height/2-50, distance=Math.sqrt((mouseX-sunScreenX)**2+(mouseY-sunScreenY)**2); if(distance<sun.radius+10){animationState='warping';} }
+        function handleLoaderClick(e) { 
+            if(animationState!=='loaded') return; 
+            
+            const rect=loaderCanvas.getBoundingClientRect(), mouseX=e.clientX-rect.left, mouseY=e.clientY-rect.top, sunScreenX=width/2, sunScreenY=height/2-50, distance=Math.sqrt((mouseX-sunScreenX)**2+(mouseY-sunScreenY)**2); 
+            
+            if(distance < sun.radius + 20) {
+                if (sunPulseAnimation) sunPulseAnimation.kill();
+                
+                createExplosion(0, 0, sun.color, 400, [100, 400]);
+                gsap.to(sun, { radius: 0, shadowBlur: 0, duration: 0.1 });
+                
+                shockwave.radius = 0;
+                shockwave.alpha = 1;
+                shockwave.lineWidth = 15;
+                gsap.to(shockwave, {
+                    radius: 400,
+                    alpha: 0,
+                    lineWidth: 0,
+                    duration: 0.7,
+                    ease: 'power2.out'
+                });
+
+                planets.forEach((p, i) => {
+                    const angle = time * p.speed;
+                    const currentX = p.orbitRadius * Math.cos(angle);
+                    const currentY = p.orbitRadius * Math.sin(angle) / p.ellipseFactor;
+
+                    createExplosion(currentX, currentY, p.color, 70, [80, 150]); 
+                    
+                    gsap.to(p, { radius: 0, duration: 0.1, delay: i * 0.03 });
+                });
+
+                setTimeout(() => {
+                    animationState = 'warping';
+                }, 500);
+            }
+        }
         
         let isMouseOverSun = false;
         function handleLoaderMouseMove(e) { 
@@ -277,7 +354,7 @@
         // ====================================================================
         // BAGIAN 2: SCENE 3D
         // ====================================================================
-        let scene, camera, renderer, plane, clock, cameraPivot;
+        let scene, camera, renderer, plane, clock, cameraPivot, asteroidField;
         const starSystems = [];
         const asteroidData = [];
         const keysPressed = {};
@@ -288,9 +365,8 @@
 
         let isMouseDown3D = false;
         let previousMousePosition = { x: 0, y: 0 };
-        let canControlUFO = false; // **Flag untuk mengontrol input**
+        let canControlUFO = false;
 
-        // Helper function to apply the appear shader effect to materials
         function applyAppearShader(material, topY = 50.0, range = 100.0) {
             material.transparent = true;
             material.onBeforeCompile = (shader) => {
@@ -360,6 +436,10 @@
             scene.add(dirLight);
             plane = createUFO();
             scene.add(plane);
+            
+            asteroidField = new THREE.Group();
+            scene.add(asteroidField);
+
             create3DStars();
             createAsteroidField();
             document.addEventListener('keydown', handleKeyDown);
@@ -369,13 +449,12 @@
             canvas.addEventListener('mousemove', (e) => handleMouseMove3D(e));
             canvas.addEventListener('mouseleave', (e) => handleMouseUp3D(e));
             
-            // Mulai animasi kemunculan
             gsap.to(appearUniforms.progress, {
                 value: 1.0,
-                duration: 4.0, // **Durasi diperpanjang**
+                duration: 4.0,
                 ease: 'power2.out',
                 onComplete: () => {
-                    canControlUFO = true; // **Aktifkan kontrol setelah animasi selesai**
+                    canControlUFO = true;
                 }
             });
 
@@ -471,7 +550,7 @@
                 asteroidData.push({ position: actualCenter, radius: baseRadius * scale });
             }
             instancedMesh.instanceMatrix.needsUpdate = true;
-            scene.add(instancedMesh);
+            asteroidField.add(instancedMesh);
         }
 
         function createAsteroidField() {
@@ -486,9 +565,13 @@
         }
         
         function checkCollision(nextPosition) {
+            if (!asteroidField) return null;
             const ufoRadius = 4;
+            const worldToLocalMatrix = asteroidField.matrixWorld.clone().invert();
+            const localUfoPosition = nextPosition.clone().applyMatrix4(worldToLocalMatrix);
+
             for (const asteroid of asteroidData) {
-                if (nextPosition.distanceTo(asteroid.position) < ufoRadius + asteroid.radius) {
+                if (localUfoPosition.distanceTo(asteroid.position) < ufoRadius + asteroid.radius) {
                     return asteroid;
                 }
             }
@@ -525,7 +608,6 @@
             const delta = clock.getDelta();
             
             const localTargetVelocity = new THREE.Vector3();
-            // **PERBAIKAN: Hanya proses input jika kontrol diizinkan**
             if(canControlUFO) {
                 if (keysPressed['w'] || keysPressed['arrowup']) { localTargetVelocity.z = -1; }
                 if (keysPressed['s'] || keysPressed['arrowdown']) { localTargetVelocity.z = 1; }
@@ -555,13 +637,14 @@
             const collisionObject = checkCollision(plane.position.clone().add(moveVector));
 
             if (collisionObject) {
+                const worldAsteroidPosition = collisionObject.position.clone().applyMatrix4(asteroidField.matrixWorld);
                 const ufoRadius = 4;
-                const penetration = (ufoRadius + collisionObject.radius) - plane.position.distanceTo(collisionObject.position);
+                const penetration = (ufoRadius + collisionObject.radius) - plane.position.distanceTo(worldAsteroidPosition);
                 if (penetration > 0) {
-                    const correction = new THREE.Vector3().subVectors(plane.position, collisionObject.position).normalize().multiplyScalar(penetration);
+                    const correction = new THREE.Vector3().subVectors(plane.position, worldAsteroidPosition).normalize().multiplyScalar(penetration);
                     plane.position.add(correction);
                 }
-                collisionNormal.subVectors(plane.position, collisionObject.position).normalize();
+                collisionNormal.subVectors(plane.position, worldAsteroidPosition).normalize();
                 const dot = moveVector.dot(collisionNormal);
                 reflectionVector.copy(collisionNormal).multiplyScalar(dot);
                 moveVector.sub(reflectionVector);
@@ -574,6 +657,11 @@
                 stars.rotation.y += 0.0001 * (index + 1);
                 stars.rotation.x += 0.00005 * (index + 1);
             });
+            
+            if (asteroidField) {
+                asteroidField.rotation.y += 0.0002;
+                asteroidField.rotation.x += 0.0001;
+            }
             
             cameraPivot.position.lerp(plane.position, 0.1);
             
