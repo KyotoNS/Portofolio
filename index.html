@@ -341,7 +341,8 @@
             const deltaY = event.clientY - previousMousePosition.y;
             cameraPivot.rotation.y -= deltaX * 0.005;
             cameraPivot.rotation.x -= deltaY * 0.005;
-            cameraPivot.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 2, cameraPivot.rotation.x));
+            // **PERBAIKAN: Batasan rotasi vertikal dihapus**
+            // cameraPivot.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 2, cameraPivot.rotation.x));
             previousMousePosition.x = event.clientX;
             previousMousePosition.y = event.clientY;
         }
