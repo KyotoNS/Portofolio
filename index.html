@@ -51,7 +51,7 @@
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
         // ====================================================================
-        // BAGIAN 1: PEMUAT (LOADER) TATA SURYA 2D (Tidak berubah)
+        // BAGIAN 1: PEMUAT (LOADER) TATA SURYA 2D & ASET 3D
         // ====================================================================
         const loaderCanvas = document.getElementById('sceneCanvas');
         const ctx = loaderCanvas.getContext('2d');
@@ -63,6 +63,11 @@
         let loadingProgress = 0;
         let animationState = 'loading'; // 'loading', 'loaded', 'warping', 'faded'
         let warpFactor = 0;
+
+        // Variabel untuk menyimpan aset yang sudah dimuat dan status pemuatan
+        let asteroidGeometry = null;
+        let asteroidBoundingSphere = null; 
+        let assetsLoaded = false; 
 
         const sun = { name: 'Sun', color: 'rgba(255, 223, 100, 1)', radius: 25, glow: 'rgba(255, 200, 0, 0.5)' };
         const planets = [
@@ -77,26 +82,99 @@
         ];
         const iconPaths = ["M0,-20 Q15,-15 10,0 Q5,15 0,20 Q-5,15 -10,0 Q-15,-15 0,-20 Z M0,-10 Q5,-5 0,0 Q-5,-5 0,-10 Z","M-15,5 Q-5,15 0,5 Q5,-5 -5,-15 M15,5 Q5,15 0,5 Q-5,-5 5,-15","M0,-17.5 L15,2.5 L0,7.5 L-15,2.5 Z M-8,-2.5 L0,17.5 L8,-2.5","M-2.5,15 A15,15 0 0,0 15,-2.5 M-15,2.5 A10,10 0 0,1 2.5,-15 M-10,-10 L5,5","M0,-17.5 C15,-7.5 8,17.5 0,12.5 C-8,17.5 -15,-7.5 0,-17.5 Z","M0,-20 L0,20 M-15,-10 L15,10 M-15,10 L15,-10 M-9,-17 L9,17 M-9,17 L9,-17","M0,-20 L17,0 L0,20 L-17,0 Z M0,-10 L8.5,0 L0,10 L-8.5,0 Z","M0,0 A13,13 0 1,0 0,1 M-13,0 L13,0 M0,-15 L0,15","M-13,-13 L13,13 M-13,13 L13,-13 M0,-20 L0,20"];
         
+        const manager = new THREE.LoadingManager();
+        manager.onLoad = function ( ) {
+            console.log( 'Loading complete!');
+            assetsLoaded = true;
+        };
+
+        function preloadAssets() {
+            const loader = new OBJLoader(manager);
+            loader.load( 'Asteroids.OBJ',
+                (object) => { // onLoad
+                    let originalMesh;
+                    object.traverse((child) => { if (child.isMesh) { originalMesh = child; } });
+                    if (originalMesh) {
+                        const geometry = originalMesh.geometry;
+                        geometry.computeBoundingSphere();
+                        
+                        // PERBAIKAN: Kecilkan radius tabrakan sedikit agar lebih pas
+                        geometry.boundingSphere.radius *= 0.8; 
+
+                        asteroidGeometry = geometry;
+                        asteroidBoundingSphere = geometry.boundingSphere.clone();
+
+                    } else {
+                        console.error("Tidak dapat menemukan geometri mesh. Menggunakan fallback.");
+                        asteroidGeometry = new THREE.SphereGeometry(2, 8, 8);
+                        asteroidGeometry.computeBoundingSphere();
+                        asteroidBoundingSphere = asteroidGeometry.boundingSphere.clone();
+                    }
+                },
+                undefined, 
+                (error) => { 
+                    console.error('Gagal memuat Asteroids.OBJ. Menggunakan fallback.', error);
+                    asteroidGeometry = new THREE.SphereGeometry(2, 8, 8);
+                    asteroidGeometry.computeBoundingSphere();
+                    asteroidBoundingSphere = asteroidGeometry.boundingSphere.clone();
+                }
+            );
+        }
+
         function setupLoader() { width = loaderCanvas.width = window.innerWidth; height = loaderCanvas.height = window.innerHeight; create2DStars(); loaderCanvas.addEventListener('click', handleLoaderClick); loaderCanvas.addEventListener('mousemove', handleLoaderMouseMove); }
         function create2DStars() { stars2D = []; for (let i = 0; i < numStars2D; i++) { stars2D.push({ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * 1.5 + 0.5, alpha: Math.random(), twinkleSpeed: Math.random() * 0.03 + 0.01 }); } }
         function draw2DStars() { const centerX = width/2, centerY = height/2; for(const star of stars2D){ if(animationState==='warping'){ const dx=star.x-centerX, dy=star.y-centerY, endX=star.x+dx*warpFactor*0.5, endY=star.y+dy*warpFactor*0.5; ctx.beginPath(); ctx.moveTo(star.x,star.y); ctx.lineTo(endX,endY); ctx.strokeStyle=`rgba(255,255,255,${1-warpFactor})`; ctx.lineWidth=star.radius; ctx.stroke(); }else{ star.alpha=Math.abs(Math.sin(time*star.twinkleSpeed)); ctx.beginPath(); ctx.arc(star.x,star.y,star.radius,0,Math.PI*2); ctx.fillStyle=`rgba(255,255,255,${star.alpha})`; ctx.fill(); }}}
-        function drawSolarSystem() { ctx.save(); ctx.translate(width/2,height/2-50); if(animationState!=='warping'){ctx.strokeStyle=`rgba(255,255,255,0.1)`; ctx.lineWidth=1; planets.forEach((p,i)=>{if(loadingProgress>(i+1)*(100/9)){ctx.beginPath();ctx.ellipse(0,0,p.orbitRadius,p.orbitRadius,0,0,2*Math.PI);ctx.stroke()}})} const sunPulse=animationState==='loaded'?Math.sin(time*0.1)*5:0, sunWarpSize=animationState==='warping'?width*warpFactor*1.5:0; ctx.shadowBlur=20+sunPulse+(warpFactor*100); ctx.shadowColor=sun.glow; ctx.fillStyle=sun.color; ctx.beginPath(); ctx.arc(0,0,sun.radius+sunPulse+sunWarpSize,0,2*Math.PI); ctx.fill(); ctx.shadowBlur=0; planets.forEach((p,i)=>{if((animationState==='loading'&&loadingProgress>(i+1)*(100/9))||animationState!=='loading'){const angle=time*p.speed; let x=p.orbitRadius*Math.cos(angle), y=p.orbitRadius*Math.sin(angle), radius=p.radius; ctx.globalAlpha=1; if(animationState==='warping'){const warpScale=1+warpFactor*3; x*=warpScale; y*=warpScale; radius*=warpScale; ctx.globalAlpha=1-warpFactor} ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(x,y,radius,0,2*Math.PI); ctx.fill(); if(p.ring){ctx.strokeStyle=p.color; ctx.lineWidth=2*(animationState==='warping'?1+warpFactor*3:1); ctx.beginPath(); ctx.ellipse(x,y,radius*2,radius*0.5,Math.PI/4,0,2*Math.PI); ctx.stroke()}}}); ctx.globalAlpha=1; ctx.restore(); }
+        function drawSolarSystem() { ctx.save(); ctx.translate(width/2,height/2-50); if(animationState!=='warping'){ctx.strokeStyle=`rgba(255,255,255,0.1)`; ctx.lineWidth=1; planets.forEach((p,i)=>{if(loadingProgress>(i+1)*(100/9)){ctx.beginPath();ctx.ellipse(0,0,p.orbitRadius,p.orbitRadius,0,0,2*Math.PI);ctx.stroke()}})} const sunPulse=animationState==='loaded'?Math.sin(time*0.1)*5:0, sunWarpSize=animationState==='warping'?width*warpFactor*1.5:0; ctx.shadowBlur=20+sunPulse+(warpFactor*100); ctx.shadowColor=sun.glow; ctx.fillStyle=sun.color; ctx.beginPath(); ctx.arc(0,0,sun.radius+sunPulse+sunWarpSize,0,2*Math.PI); ctx.fill(); ctx.shadowBlur=0; planets.forEach((p,i)=>{if((loadingProgress>(i+1)*(100/9))||animationState!=='loading'){const angle=time*p.speed; let x=p.orbitRadius*Math.cos(angle), y=p.orbitRadius*Math.sin(angle), radius=p.radius; ctx.globalAlpha=1; if(animationState==='warping'){const warpScale=1+warpFactor*3; x*=warpScale; y*=warpScale; radius*=warpScale; ctx.globalAlpha=1-warpFactor} ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(x,y,radius,0,2*Math.PI); ctx.fill(); if(p.ring){ctx.strokeStyle=p.color; ctx.lineWidth=2*(animationState==='warping'?1+warpFactor*3:1); ctx.beginPath(); ctx.ellipse(x,y,radius*2,radius*0.5,Math.PI/4,0,2*Math.PI); ctx.stroke()}}}); ctx.globalAlpha=1; ctx.restore(); }
         function drawLoadingIcons() { if(animationState==='warping'||animationState==='faded')return; const iconSize=25, numIcons=9, spacing=30, totalWidth=numIcons*iconSize+(numIcons-1)*spacing; let startX=(width-totalWidth)/2; const y=height-60; iconPaths.forEach((pathString,i)=>{const step=100/numIcons, isActive=loadingProgress>=i*step, activeColor='rgba(255,223,100,1)', inactiveColor='rgba(255,255,255,0.2)'; ctx.save(); let finalX=startX+iconSize/2; if(i===7)finalX+=10; ctx.translate(finalX,y); ctx.scale(0.8,0.8); const path=new Path2D(pathString); ctx.strokeStyle=isActive?activeColor:inactiveColor; ctx.lineWidth=2; ctx.stroke(path); if(isActive){const fillAmount=(loadingProgress-i*step)/step; ctx.save(); ctx.clip(path); ctx.fillStyle=activeColor; ctx.fillRect(-iconSize,iconSize-(fillAmount*iconSize*2),iconSize*2,iconSize*2); ctx.restore()} ctx.restore(); startX+=iconSize+spacing;}); }
-        function animateLoader() { time += 1; if (animationState === 'loading') { if (loadingProgress < 100) { loadingProgress += 0.5; } else { loadingProgress = 100; animationState = 'loaded'; } } else if (animationState === 'warping') { if (warpFactor < 1) { warpFactor += 0.01; } else { warpFactor = 1; animationState = 'faded'; transitionToMainScene(); return; } } ctx.clearRect(0, 0, width, height); draw2DStars(); drawSolarSystem(); drawLoadingIcons(); requestAnimationFrame(animateLoader); }
+        
+        function animateLoader() { 
+            time += 1; 
+
+            if (animationState === 'loading') {
+                if (loadingProgress < 100) {
+                    loadingProgress += 0.5;
+                } else {
+                    loadingProgress = 100;
+                    if (assetsLoaded) {
+                        animationState = 'loaded';
+                    }
+                }
+            } else if (animationState === 'warping') { 
+                if (warpFactor < 1) { 
+                    warpFactor += 0.01; 
+                } else { 
+                    warpFactor = 1; 
+                    animationState = 'faded'; 
+                    transitionToMainScene(); 
+                    return; 
+                } 
+            } 
+            
+            ctx.clearRect(0, 0, width, height); 
+            draw2DStars(); 
+            drawSolarSystem(); 
+            drawLoadingIcons(); 
+            requestAnimationFrame(animateLoader); 
+        }
+
         function handleLoaderClick(e) { if(animationState!=='loaded')return; const rect=loaderCanvas.getBoundingClientRect(), mouseX=e.clientX-rect.left, mouseY=e.clientY-rect.top, sunScreenX=width/2, sunScreenY=height/2-50, distance=Math.sqrt((mouseX-sunScreenX)**2+(mouseY-sunScreenY)**2); if(distance<sun.radius+10){animationState='warping';} }
         function handleLoaderMouseMove(e) { if(animationState!=='loaded'){loaderCanvas.style.cursor='default';return;} const rect=loaderCanvas.getBoundingClientRect(), mouseX=e.clientX-rect.left, mouseY=e.clientY-rect.top, sunScreenX=width/2, sunScreenY=height/2-50, distance=Math.sqrt((mouseX-sunScreenX)**2+(mouseY-sunScreenY)**2); if(distance<sun.radius+10){loaderCanvas.style.cursor='pointer';}else{loaderCanvas.style.cursor='default';}}
-        window.addEventListener('resize', setupLoader);
+        
+        preloadAssets();
         setupLoader();
         animateLoader();
 
         // ====================================================================
-        // BAGIAN 2: SCENE 3D PESAWAT (Diperbarui)
+        // BAGIAN 2: SCENE 3D
         // ====================================================================
         let scene, camera, renderer, plane, clock;
-        const starSystems = []; // Array untuk menampung lapisan bintang
+        const starSystems = [];
+        const asteroidData = [];
         const keysPressed = {};
         const planeVelocity = new THREE.Vector3(0, 0, 0);
         const moveSpeed = 50;
+        const collisionNormal = new THREE.Vector3();
+        const reflectionVector = new THREE.Vector3();
 
         function transitionToMainScene() {
             document.getElementById('sceneCanvas').style.display = 'none';
@@ -129,7 +207,7 @@
             scene.add(plane);
             
             create3DStars();
-            createAsteroidField(); // Menambahkan asteroid
+            createAsteroidField();
 
             document.addEventListener('keydown', handleKeyDown);
             document.addEventListener('keyup', handleKeyUp);
@@ -158,8 +236,7 @@
 
         function createStarTexture() {
             const canvas = document.createElement('canvas');
-            canvas.width = 32;
-            canvas.height = 32;
+            canvas.width = 32; canvas.height = 32;
             const context = canvas.getContext('2d');
             const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
             gradient.addColorStop(0, 'rgba(255,255,255,1)');
@@ -174,18 +251,15 @@
             const createStarLayer = (count, size, hueRange) => {
                 const starGeometry = new THREE.BufferGeometry();
                 const starMaterial = new THREE.PointsMaterial({ size: size, sizeAttenuation: true, transparent: true, alphaTest: 0.5, map: createStarTexture(), vertexColors: true });
-                const starVertices = [];
-                const starColors = [];
-                const [hueStart, hueEnd] = hueRange;
-                const hueSpan = hueEnd - hueStart;
+                const starVertices = [], starColors = [];
+                const [hueStart, hueEnd] = hueRange, hueSpan = hueEnd - hueStart;
                 for (let i = 0; i < count; i++) {
                     const x = (Math.random() - 0.5) * 2000;
                     const y = (Math.random() - 0.5) * 2000;
                     const z = (Math.random() - 0.5) * 2000;
                     starVertices.push(x, y, z);
                     const color = new THREE.Color();
-                    const hue = hueStart + Math.random() * hueSpan;
-                    color.setHSL(hue, 0.8, 0.7);
+                    color.setHSL(hueStart + Math.random() * hueSpan, 0.8, 0.7);
                     starColors.push(color.r, color.g, color.b);
                 }
                 starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
@@ -199,67 +273,68 @@
             createStarLayer(100000, 1.5, [0.16, 0.3]);
             createStarLayer(50000, 2.0, [0.7, 0.9]);
         }
+        
+        function setupAsteroids(geometry, boundingSphere) {
+            const material = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8, metalness: 0.2 });
+            const count = 100;
+            const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+            const dummy = new THREE.Object3D();
+            
+            const baseRadius = boundingSphere.radius;
+            const centerOffset = boundingSphere.center;
+
+            for (let i = 0; i < count; i++) {
+                dummy.position.x = (Math.random() - 0.5) * 1000;
+                dummy.position.y = (Math.random() - 0.5) * 1000;
+                dummy.position.z = (Math.random() - 0.5) * 1000;
+                dummy.rotation.x = Math.random() * 2 * Math.PI;
+                dummy.rotation.y = Math.random() * 2 * Math.PI;
+                dummy.rotation.z = Math.random() * 2 * Math.PI;
+                const scale = Math.random() * 3 + 2.0;
+                dummy.scale.set(scale, scale, scale);
+                dummy.updateMatrix();
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+                
+                const actualCenter = centerOffset.clone().applyMatrix4(dummy.matrix);
+
+                asteroidData.push({
+                    position: actualCenter, 
+                    radius: baseRadius * scale 
+                });
+            }
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            scene.add(instancedMesh);
+        }
 
         function createAsteroidField() {
-            const loader = new OBJLoader();
-            // PENTING: Ganti path ini dengan lokasi file .obj Anda
-            // Anda bisa mengunggahnya ke layanan seperti GitHub Pages atau Netlify
-            loader.load('Asteroids.OBJ', (object) => {
-                // Ekstrak geometri dari model yang dimuat.
-                // Model OBJ seringkali dimuat sebagai Group, jadi kita cari Mesh di dalamnya.
-                const geometry = object.children[0].geometry;
-
-                const material = new THREE.MeshStandardMaterial({
-                    color: 0x888888,
-                    roughness: 0.8,
-                    metalness: 0.2
-                });
-
-                const count = 100;
-                const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
-
-                const dummy = new THREE.Object3D(); // Objek bantuan untuk mengatur matriks
-                for (let i = 0; i < count; i++) {
-                    // Atur posisi acak
-                    dummy.position.x = (Math.random() - 0.5) * 1000;
-                    dummy.position.y = (Math.random() - 0.5) * 1000;
-                    dummy.position.z = (Math.random() - 0.5) * 1000;
-
-                    // Atur rotasi acak
-                    dummy.rotation.x = Math.random() * 2 * Math.PI;
-                    dummy.rotation.y = Math.random() * 2 * Math.PI;
-                    dummy.rotation.z = Math.random() * 2 * Math.PI;
-
-                    // Atur skala acak
-                    const scale = Math.random() * 3 + 0.5;
-                    dummy.scale.set(scale, scale, scale);
-
-                    // Terapkan transformasi ke instance
-                    dummy.updateMatrix();
-                    instancedMesh.setMatrixAt(i, dummy.matrix);
+            if (asteroidGeometry && asteroidBoundingSphere) {
+                setupAsteroids(asteroidGeometry, asteroidBoundingSphere);
+            } else {
+                console.error("Geometri asteroid tidak dimuat sebelum membuat scene 3D.");
+                const fallbackGeometry = new THREE.SphereGeometry(2, 8, 8);
+                fallbackGeometry.computeBoundingSphere();
+                setupAsteroids(fallbackGeometry, fallbackGeometry.boundingSphere.clone());
+            }
+        }
+        
+        function checkCollision(nextPosition) {
+            const ufoRadius = 4;
+            for (const asteroid of asteroidData) {
+                const distance = nextPosition.distanceTo(asteroid.position);
+                if (distance < ufoRadius + asteroid.radius) {
+                    return asteroid;
                 }
-                
-                instancedMesh.instanceMatrix.needsUpdate = true;
-                scene.add(instancedMesh);
-
-            }, undefined, (error) => {
-                console.error('An error happened while loading the OBJ model:', error);
-            });
+            }
+            return null;
         }
 
-
-        function handleKeyDown(event) {
-            keysPressed[event.key.toLowerCase()] = true;
-        }
-        function handleKeyUp(event) {
-            keysPressed[event.key.toLowerCase()] = false;
-        }
+        function handleKeyDown(event) { keysPressed[event.key.toLowerCase()] = true; }
+        function handleKeyUp(event) { keysPressed[event.key.toLowerCase()] = false; }
 
         function animateMainScene() {
             requestAnimationFrame(animateMainScene);
             const delta = clock.getDelta();
             const elapsedTime = clock.getElapsedTime();
-
             const targetVelocity = new THREE.Vector3(0, 0, 0);
 
             if (keysPressed['w'] || keysPressed['arrowup']) { targetVelocity.z = -1; }
@@ -270,13 +345,32 @@
             if (keysPressed['shift']) { targetVelocity.y = -1; }
 
             planeVelocity.lerp(targetVelocity, 0.1);
-
-            plane.position.x += planeVelocity.x * delta * moveSpeed;
-            plane.position.z += planeVelocity.z * delta * moveSpeed;
-            plane.position.y += planeVelocity.y * delta * moveSpeed;
+            const moveVector = planeVelocity.clone().multiplyScalar(delta * moveSpeed);
             
-            plane.position.y += Math.sin(elapsedTime * 2) * 0.01;
+            const collisionObject = checkCollision(plane.position.clone().add(moveVector));
 
+            if (collisionObject) {
+                const ufoRadius = 4;
+                const currentDistance = plane.position.distanceTo(collisionObject.position);
+                const penetration = ufoRadius + collisionObject.radius - currentDistance;
+                
+                if (penetration > 0) {
+                    const correctionNormal = new THREE.Vector3().subVectors(plane.position, collisionObject.position).normalize();
+                    const correctionVector = correctionNormal.multiplyScalar(penetration);
+                    plane.position.add(correctionVector);
+                }
+
+                collisionNormal.subVectors(plane.position, collisionObject.position).normalize();
+                const dot = moveVector.dot(collisionNormal);
+                reflectionVector.copy(collisionNormal).multiplyScalar(dot);
+                moveVector.sub(reflectionVector);
+                plane.position.add(moveVector);
+                
+            } else {
+                plane.position.add(moveVector);
+            }
+            
+            plane.position.y += Math.sin(elapsedTime * 2) * 0.01; // Efek melayang
             plane.rotation.z = planeVelocity.x * -0.2;
             plane.rotation.y = planeVelocity.x * -0.1;
             plane.rotation.x = planeVelocity.z * 0.2;
@@ -290,7 +384,6 @@
             const targetCameraPosition = plane.position.clone().add(idealOffset);
             camera.position.lerp(targetCameraPosition, 0.1);
             camera.lookAt(plane.position);
-
             renderer.render(scene, camera);
         }
     </script>
