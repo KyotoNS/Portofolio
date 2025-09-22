@@ -33,7 +33,7 @@
 <body>
     <canvas id="sceneCanvas"></canvas>
     <canvas id="mainSceneCanvas"></canvas>
-    <div id="infoText" class="info">Gunakan WASD/Panah untuk Bergerak | Spasi untuk Naik, Shift Kiri untuk Turun</div>
+    <div id="infoText" class="info">Gunakan WASD/Panah untuk Bergerak | Spasi/Shift untuk Naik/Turun | Tahan Klik Kiri untuk Memutar Kamera</div>
 
     <!-- Import Map untuk Three.js -->
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -98,8 +98,7 @@
                         const geometry = originalMesh.geometry;
                         geometry.computeBoundingSphere();
                         
-                        // PERBAIKAN: Kecilkan radius tabrakan sedikit agar lebih pas
-                        geometry.boundingSphere.radius *= 0.8; 
+                        geometry.boundingSphere.radius *= 0.85; 
 
                         asteroidGeometry = geometry;
                         asteroidBoundingSphere = geometry.boundingSphere.clone();
@@ -129,7 +128,6 @@
         
         function animateLoader() { 
             time += 1; 
-
             if (animationState === 'loading') {
                 if (loadingProgress < 100) {
                     loadingProgress += 0.5;
@@ -149,7 +147,6 @@
                     return; 
                 } 
             } 
-            
             ctx.clearRect(0, 0, width, height); 
             draw2DStars(); 
             drawSolarSystem(); 
@@ -167,51 +164,53 @@
         // ====================================================================
         // BAGIAN 2: SCENE 3D
         // ====================================================================
-        let scene, camera, renderer, plane, clock;
+        let scene, camera, renderer, plane, clock, cameraPivot;
         const starSystems = [];
         const asteroidData = [];
         const keysPressed = {};
-        const planeVelocity = new THREE.Vector3(0, 0, 0);
+        const planeVelocity = new THREE.Vector3(0, 0, 0); // This will now be LOCAL velocity
         const moveSpeed = 50;
         const collisionNormal = new THREE.Vector3();
         const reflectionVector = new THREE.Vector3();
 
+        let isMouseDown = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
         function transitionToMainScene() {
             document.getElementById('sceneCanvas').style.display = 'none';
-            document.getElementById('mainSceneCanvas').style.display = 'block';
+            const mainCanvas = document.getElementById('mainSceneCanvas');
+            mainCanvas.style.display = 'block';
             document.getElementById('infoText').style.display = 'block';
-            initMainScene();
+            initMainScene(mainCanvas);
         }
 
-        function initMainScene() {
+        function initMainScene(canvas) {
             scene = new THREE.Scene();
             scene.fog = new THREE.Fog(0x0b0217, 100, 500);
-
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 5, 20);
-            camera.lookAt(0, 0, 0);
-
-            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('mainSceneCanvas'), antialias: true });
+            cameraPivot = new THREE.Group();
+            scene.add(cameraPivot);
+            cameraPivot.add(camera);
+            camera.position.set(0, 5, 15);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setClearColor(0x0b0217);
-
             clock = new THREE.Clock();
-
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
             dirLight.position.set(50, 50, 50);
             scene.add(dirLight);
-
             plane = createUFO();
             scene.add(plane);
-            
             create3DStars();
             createAsteroidField();
-
             document.addEventListener('keydown', handleKeyDown);
             document.addEventListener('keyup', handleKeyUp);
-
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mousemove', handleMouseMove3D);
+            canvas.addEventListener('mouseleave', handleMouseUp);
             animateMainScene();
         }
 
@@ -279,7 +278,6 @@
             const count = 100;
             const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
             const dummy = new THREE.Object3D();
-            
             const baseRadius = boundingSphere.radius;
             const centerOffset = boundingSphere.center;
 
@@ -294,13 +292,8 @@
                 dummy.scale.set(scale, scale, scale);
                 dummy.updateMatrix();
                 instancedMesh.setMatrixAt(i, dummy.matrix);
-                
                 const actualCenter = centerOffset.clone().applyMatrix4(dummy.matrix);
-
-                asteroidData.push({
-                    position: actualCenter, 
-                    radius: baseRadius * scale 
-                });
+                asteroidData.push({ position: actualCenter, radius: baseRadius * scale });
             }
             instancedMesh.instanceMatrix.needsUpdate = true;
             scene.add(instancedMesh);
@@ -320,8 +313,7 @@
         function checkCollision(nextPosition) {
             const ufoRadius = 4;
             for (const asteroid of asteroidData) {
-                const distance = nextPosition.distanceTo(asteroid.position);
-                if (distance < ufoRadius + asteroid.radius) {
+                if (nextPosition.distanceTo(asteroid.position) < ufoRadius + asteroid.radius) {
                     return asteroid;
                 }
             }
@@ -330,60 +322,91 @@
 
         function handleKeyDown(event) { keysPressed[event.key.toLowerCase()] = true; }
         function handleKeyUp(event) { keysPressed[event.key.toLowerCase()] = false; }
+        
+        function handleMouseDown(event) {
+            if (event.button === 0) {
+                isMouseDown = true;
+                previousMousePosition.x = event.clientX;
+                previousMousePosition.y = event.clientY;
+            }
+        }
+        function handleMouseUp(event) {
+             if (event.button === 0) {
+                isMouseDown = false;
+            }
+        }
+        function handleMouseMove3D(event) {
+            if (!isMouseDown) return;
+            const deltaX = event.clientX - previousMousePosition.x;
+            const deltaY = event.clientY - previousMousePosition.y;
+            cameraPivot.rotation.y -= deltaX * 0.005;
+            cameraPivot.rotation.x -= deltaY * 0.005;
+            cameraPivot.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 2, cameraPivot.rotation.x));
+            previousMousePosition.x = event.clientX;
+            previousMousePosition.y = event.clientY;
+        }
 
         function animateMainScene() {
             requestAnimationFrame(animateMainScene);
             const delta = clock.getDelta();
-            const elapsedTime = clock.getElapsedTime();
-            const targetVelocity = new THREE.Vector3(0, 0, 0);
+            
+            // Tentukan target kecepatan dalam ruang LOKAL UFO
+            const localTargetVelocity = new THREE.Vector3();
+            if (keysPressed['w'] || keysPressed['arrowup']) { localTargetVelocity.z = -1; }
+            if (keysPressed['s'] || keysPressed['arrowdown']) { localTargetVelocity.z = 1; }
+            if (keysPressed['a'] || keysPressed['arrowleft']) { localTargetVelocity.x = -1; }
+            if (keysPressed['d'] || keysPressed['arrowright']) { localTargetVelocity.x = 1; }
+            if (keysPressed[' ']) { localTargetVelocity.y = 1; }
+            if (keysPressed['shift']) { localTargetVelocity.y = -1; }
 
-            if (keysPressed['w'] || keysPressed['arrowup']) { targetVelocity.z = -1; }
-            if (keysPressed['s'] || keysPressed['arrowdown']) { targetVelocity.z = 1; }
-            if (keysPressed['a'] || keysPressed['arrowleft']) { targetVelocity.x = -1; }
-            if (keysPressed['d'] || keysPressed['arrowright']) { targetVelocity.x = 1; }
-            if (keysPressed[' ']) { targetVelocity.y = 1; }
-            if (keysPressed['shift']) { targetVelocity.y = -1; }
+            // planeVelocity sekarang adalah kecepatan LOKAL yang dimuluskan
+            planeVelocity.lerp(localTargetVelocity, 0.1);
 
-            planeVelocity.lerp(targetVelocity, 0.1);
-            const moveVector = planeVelocity.clone().multiplyScalar(delta * moveSpeed);
+            // **LOGIKA ROTASI DAN GERAKAN YANG DIPERBAIKI**
+            // 1. Hitung rotasi dasar dari kamera
+            const baseQuaternion = new THREE.Quaternion().setFromEuler(cameraPivot.rotation);
+
+            // 2. Hitung rotasi tambahan (banking/pitching) dari kecepatan LOKAL
+            const bankAngle = planeVelocity.x * -0.3;
+            const pitchAngle = planeVelocity.z * 0.3;
+            const verticalPitch = planeVelocity.y * 0.3;
+            const bankQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), bankAngle);
+            const pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchAngle + verticalPitch);
+
+            // 3. Gabungkan rotasi: dasar * tambahan, dan terapkan ke UFO
+            const finalQuaternion = new THREE.Quaternion().copy(baseQuaternion).multiply(pitchQuat).multiply(bankQuat);
+            plane.quaternion.slerp(finalQuaternion, delta * 15);
+
+            // 4. Ubah kecepatan lokal menjadi vektor pergerakan di ruang GLOBAL menggunakan rotasi FINAL UFO
+            const moveVector = planeVelocity.clone()
+                .applyQuaternion(plane.quaternion)
+                .multiplyScalar(delta * moveSpeed);
             
             const collisionObject = checkCollision(plane.position.clone().add(moveVector));
 
             if (collisionObject) {
                 const ufoRadius = 4;
-                const currentDistance = plane.position.distanceTo(collisionObject.position);
-                const penetration = ufoRadius + collisionObject.radius - currentDistance;
-                
+                const penetration = (ufoRadius + collisionObject.radius) - plane.position.distanceTo(collisionObject.position);
                 if (penetration > 0) {
-                    const correctionNormal = new THREE.Vector3().subVectors(plane.position, collisionObject.position).normalize();
-                    const correctionVector = correctionNormal.multiplyScalar(penetration);
-                    plane.position.add(correctionVector);
+                    const correction = new THREE.Vector3().subVectors(plane.position, collisionObject.position).normalize().multiplyScalar(penetration);
+                    plane.position.add(correction);
                 }
-
                 collisionNormal.subVectors(plane.position, collisionObject.position).normalize();
                 const dot = moveVector.dot(collisionNormal);
                 reflectionVector.copy(collisionNormal).multiplyScalar(dot);
                 moveVector.sub(reflectionVector);
                 plane.position.add(moveVector);
-                
             } else {
                 plane.position.add(moveVector);
             }
             
-            plane.position.y += Math.sin(elapsedTime * 2) * 0.01; // Efek melayang
-            plane.rotation.z = planeVelocity.x * -0.2;
-            plane.rotation.y = planeVelocity.x * -0.1;
-            plane.rotation.x = planeVelocity.z * 0.2;
-
             starSystems.forEach((stars, index) => {
                 stars.rotation.y += 0.0001 * (index + 1);
                 stars.rotation.x += 0.00005 * (index + 1);
             });
-
-            const idealOffset = new THREE.Vector3(0, 5, 15);
-            const targetCameraPosition = plane.position.clone().add(idealOffset);
-            camera.position.lerp(targetCameraPosition, 0.1);
-            camera.lookAt(plane.position);
+            
+            cameraPivot.position.lerp(plane.position, 0.1);
+            
             renderer.render(scene, camera);
         }
     </script>
