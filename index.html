@@ -273,7 +273,8 @@
 
             // Efek miring untuk UFO
             plane.rotation.z = planeVelocity.x * -0.2; // Miring (Roll) ke kiri/kanan
-            plane.rotation.y += 0.005; // Membuat UFO berputar perlahan pada porosnya
+            // Memperbaiki bug rotasi: Mengganti putaran konstan dengan belokan (yaw) yang dikontrol oleh gerakan ke samping, agar lebih intuitif.
+            plane.rotation.y = planeVelocity.x * -0.1;
             plane.rotation.x = planeVelocity.z * 0.2;  // Miring (Pitch) ke depan/belakang
 
             // Animasikan bintang agar bergerak/berkedip
