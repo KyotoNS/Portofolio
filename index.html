@@ -74,7 +74,7 @@
             progress: { value: 0.0 }
         };
 
-        const sun = { name: 'Sun', color: 'rgba(255, 223, 100, 1)', radius: 25, originalRadius: 25, glow: 'rgba(255, 200, 0, 0.5)' };
+        const sun = { name: 'Sun', color: 'rgba(255, 223, 100, 1)', radius: 25, originalRadius: 25, glow: 'rgba(255, 200, 0, 0.5)', shadowBlur: 20 };
         const planets = [
             { name: 'Mercury', color: '#B5A7A2', radius: 4, orbitRadius: 60, speed: 0.02 },
             { name: 'Venus', color: '#E8B36F', radius: 7, orbitRadius: 90, speed: 0.015 },
@@ -144,7 +144,7 @@
                 })
             } 
             const sunWarpSize=animationState==='warping'?width*warpFactor*1.5:0; 
-            ctx.shadowBlur=20 + (sun.radius - sun.originalRadius) * 5 + (warpFactor*100);
+            ctx.shadowBlur = sun.shadowBlur + (sun.radius - sun.originalRadius) * 5 + (warpFactor*100);
             ctx.shadowColor=sun.glow; 
             ctx.fillStyle=sun.color; 
             ctx.beginPath(); 
@@ -194,12 +194,18 @@
                     loadingProgress = 100;
                     if (assetsLoaded && animationState !== 'loaded') {
                         animationState = 'loaded';
-                        sunPulseAnimation = gsap.to(sun, {
-                            radius: sun.originalRadius * 1.2,
-                            duration: 1.5,
-                            ease: 'sine.inOut',
-                            yoyo: true,
-                            repeat: -1
+                        // **Animasi Ledakan Solar Pulse Baru**
+                        sunPulseAnimation = gsap.timeline({ repeat: -1, repeatDelay: 1.5 });
+                        sunPulseAnimation.to(sun, {
+                            radius: sun.originalRadius * 2.5,
+                            shadowBlur: 80,
+                            duration: 0.2,
+                            ease: 'power3.out'
+                        }).to(sun, {
+                            radius: sun.originalRadius,
+                            shadowBlur: 20,
+                            duration: 2.5,
+                            ease: 'power2.out'
                         });
                     }
                 }
@@ -241,7 +247,7 @@
                             speed: p.originalSpeed * 4,
                             ellipseFactor: 2.0,
                             duration: 0.8,
-                            ease: 'power3.out', // Smoother ease
+                            ease: 'power3.out',
                             delay: i * 0.05
                         });
                     });
@@ -255,8 +261,8 @@
                             orbitRadius: p.originalOrbitRadius,
                             speed: p.originalSpeed,
                             ellipseFactor: 1.0,
-                            duration: 1.2, // Smoother duration
-                            ease: 'power3.inOut', // Smoother ease
+                            duration: 1.2,
+                            ease: 'power3.inOut',
                             delay: i * 0.05
                         });
                     });
@@ -282,6 +288,7 @@
 
         let isMouseDown3D = false;
         let previousMousePosition = { x: 0, y: 0 };
+        let canControlUFO = false; // **Flag untuk mengontrol input**
 
         // Helper function to apply the appear shader effect to materials
         function applyAppearShader(material, topY = 50.0, range = 100.0) {
@@ -309,17 +316,18 @@
                     '#include <dithering_fragment>',
                     `#include <dithering_fragment>
                     
-                    // **PERBAIKAN: Logika shader untuk kemunculan dari atas ke bawah**
-                    float currentYThreshold = u_effect_top_y - (u_effect_range * u_appear_progress);
-                    
-                    float fade = smoothstep(
-                        currentYThreshold,
-                        currentYThreshold + 15.0, // 15.0 = kelembutan tepi
-                        vWorldPosition.y
-                    );
+                    if (u_appear_progress < 1.0) {
+                        float currentYThreshold = u_effect_top_y - (u_effect_range * u_appear_progress);
+                        
+                        float fade = smoothstep(
+                            currentYThreshold,
+                            currentYThreshold + 15.0, 
+                            vWorldPosition.y
+                        );
 
-                    if (fade < 0.01) discard;
-                    gl_FragColor.a *= fade;
+                        if (fade < 0.01) discard;
+                        gl_FragColor.a *= fade;
+                    }
                     `
                 );
             };
@@ -361,10 +369,14 @@
             canvas.addEventListener('mousemove', (e) => handleMouseMove3D(e));
             canvas.addEventListener('mouseleave', (e) => handleMouseUp3D(e));
             
+            // Mulai animasi kemunculan
             gsap.to(appearUniforms.progress, {
                 value: 1.0,
-                duration: 2.5,
-                ease: 'power2.out'
+                duration: 4.0, // **Durasi diperpanjang**
+                ease: 'power2.out',
+                onComplete: () => {
+                    canControlUFO = true; // **Aktifkan kontrol setelah animasi selesai**
+                }
             });
 
             animateMainScene();
@@ -375,7 +387,6 @@
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.2 });
             const cockpitMat = new THREE.MeshStandardMaterial({ color: 0x99ddff, roughness: 0.1, transparent: true, opacity: 0.6 });
             
-            // **PERBAIKAN: Gunakan parameter yang lebih sesuai untuk UFO**
             applyAppearShader(bodyMat, 10.0, 20.0);
             applyAppearShader(cockpitMat, 10.0, 20.0);
 
@@ -437,10 +448,9 @@
         function setupAsteroids(geometry, boundingSphere) {
             const material = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8, metalness: 0.2 });
             
-            // **PERBAIKAN: Gunakan parameter yang sesuai untuk asteroid**
             applyAppearShader(material, 500.0, 1000.0);
 
-            const count = 100;
+            const count = 1000;
             const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
             const dummy = new THREE.Object3D();
             const baseRadius = boundingSphere.radius;
@@ -515,12 +525,15 @@
             const delta = clock.getDelta();
             
             const localTargetVelocity = new THREE.Vector3();
-            if (keysPressed['w'] || keysPressed['arrowup']) { localTargetVelocity.z = -1; }
-            if (keysPressed['s'] || keysPressed['arrowdown']) { localTargetVelocity.z = 1; }
-            if (keysPressed['a'] || keysPressed['arrowleft']) { localTargetVelocity.x = -1; }
-            if (keysPressed['d'] || keysPressed['arrowright']) { localTargetVelocity.x = 1; }
-            if (keysPressed[' ']) { localTargetVelocity.y = 1; }
-            if (keysPressed['shift']) { localTargetVelocity.y = -1; }
+            // **PERBAIKAN: Hanya proses input jika kontrol diizinkan**
+            if(canControlUFO) {
+                if (keysPressed['w'] || keysPressed['arrowup']) { localTargetVelocity.z = -1; }
+                if (keysPressed['s'] || keysPressed['arrowdown']) { localTargetVelocity.z = 1; }
+                if (keysPressed['a'] || keysPressed['arrowleft']) { localTargetVelocity.x = -1; }
+                if (keysPressed['d'] || keysPressed['arrowright']) { localTargetVelocity.x = 1; }
+                if (keysPressed[' ']) { localTargetVelocity.y = 1; }
+                if (keysPressed['shift']) { localTargetVelocity.y = -1; }
+            }
 
             planeVelocity.lerp(localTargetVelocity, 0.1);
 
