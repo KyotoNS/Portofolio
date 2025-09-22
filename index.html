@@ -69,6 +69,11 @@
         let asteroidBoundingSphere = null; 
         let assetsLoaded = false; 
 
+        // Objek untuk mengontrol animasi kemunculan via GSAP
+        const appearUniforms = {
+            progress: { value: 0.0 }
+        };
+
         const sun = { name: 'Sun', color: 'rgba(255, 223, 100, 1)', radius: 25, originalRadius: 25, glow: 'rgba(255, 200, 0, 0.5)' };
         const planets = [
             { name: 'Mercury', color: '#B5A7A2', radius: 4, orbitRadius: 60, speed: 0.02 },
@@ -80,10 +85,10 @@
             { name: 'Uranus', color: '#A9D0F5', radius: 10, orbitRadius: 370, speed: 0.002 },
             { name: 'Neptune', color: '#3F5EAB', radius: 10, orbitRadius: 430, speed: 0.001 },
         ];
-        // Simpan properti asli untuk animasi GSAP
         planets.forEach(p => {
             p.originalOrbitRadius = p.orbitRadius;
             p.originalSpeed = p.speed;
+            p.ellipseFactor = 1.0; // Properti baru untuk animasi cone
         });
 
         const iconPaths = ["M0,-20 Q15,-15 10,0 Q5,15 0,20 Q-5,15 -10,0 Q-15,-15 0,-20 Z M0,-10 Q5,-5 0,0 Q-5,-5 0,-10 Z","M-15,5 Q-5,15 0,5 Q5,-5 -5,-15 M15,5 Q5,15 0,5 Q-5,-5 5,-15","M0,-17.5 L15,2.5 L0,7.5 L-15,2.5 Z M-8,-2.5 L0,17.5 L8,-2.5","M-2.5,15 A15,15 0 0,0 15,-2.5 M-15,2.5 A10,10 0 0,1 2.5,-15 M-10,-10 L5,5","M0,-17.5 C15,-7.5 8,17.5 0,12.5 C-8,17.5 -15,-7.5 0,-17.5 Z","M0,-20 L0,20 M-15,-10 L15,10 M-15,10 L15,-10 M-9,-17 L9,17 M-9,17 L9,-17","M0,-20 L17,0 L0,20 L-17,0 Z M0,-10 L8.5,0 L0,10 L-8.5,0 Z","M0,0 A13,13 0 1,0 0,1 M-13,0 L13,0 M0,-15 L0,15","M-13,-13 L13,13 M-13,13 L13,-13 M0,-20 L0,20"];
@@ -133,7 +138,7 @@
                 planets.forEach((p,i)=>{
                     if(loadingProgress > (i+1)*(100/9)){
                         ctx.beginPath();
-                        ctx.ellipse(0,0,p.orbitRadius,p.orbitRadius/ (isMouseOverSun ? 2 : 1) ,0,0,2*Math.PI); // Animate ellipse shape
+                        ctx.ellipse(0,0,p.orbitRadius, p.orbitRadius / p.ellipseFactor ,0,0,2*Math.PI); 
                         ctx.stroke()
                     }
                 })
@@ -150,7 +155,7 @@
                 if((loadingProgress > (i+1)*(100/9)) || animationState !== 'loading'){
                     const angle=time*p.speed; 
                     let x=p.orbitRadius*Math.cos(angle), 
-                        y=p.orbitRadius*Math.sin(angle) / (isMouseOverSun ? 2 : 1), // Animate Y position for cone
+                        y=p.orbitRadius*Math.sin(angle) / p.ellipseFactor,
                         radius=p.radius; 
                     ctx.globalAlpha=1; 
                     if(animationState==='warping'){
@@ -189,7 +194,6 @@
                     loadingProgress = 100;
                     if (assetsLoaded && animationState !== 'loaded') {
                         animationState = 'loaded';
-                        // Mulai animasi GSAP saat loading selesai
                         sunPulseAnimation = gsap.to(sun, {
                             radius: sun.originalRadius * 1.2,
                             duration: 1.5,
@@ -235,9 +239,10 @@
                         gsap.to(p, {
                             orbitRadius: p.originalOrbitRadius * 0.4 + 30,
                             speed: p.originalSpeed * 4,
+                            ellipseFactor: 2.0,
                             duration: 0.8,
-                            ease: 'power2.inOut',
-                            delay: i * 0.04
+                            ease: 'power3.out', // Smoother ease
+                            delay: i * 0.05
                         });
                     });
                 }
@@ -249,9 +254,10 @@
                         gsap.to(p, {
                             orbitRadius: p.originalOrbitRadius,
                             speed: p.originalSpeed,
-                            duration: 1.0,
-                            ease: 'sine.inOut',
-                            delay: i * 0.04
+                            ellipseFactor: 1.0,
+                            duration: 1.2, // Smoother duration
+                            ease: 'power3.inOut', // Smoother ease
+                            delay: i * 0.05
                         });
                     });
                 }
@@ -276,6 +282,48 @@
 
         let isMouseDown3D = false;
         let previousMousePosition = { x: 0, y: 0 };
+
+        // Helper function to apply the appear shader effect to materials
+        function applyAppearShader(material, topY = 50.0, range = 100.0) {
+            material.transparent = true;
+            material.onBeforeCompile = (shader) => {
+                shader.uniforms.u_appear_progress = appearUniforms.progress;
+                shader.uniforms.u_effect_top_y = { value: topY };
+                shader.uniforms.u_effect_range = { value: range };
+                
+                shader.vertexShader = 'varying vec3 vWorldPosition;\n' + shader.vertexShader;
+                shader.vertexShader = shader.vertexShader.replace(
+                    '#include <worldpos_vertex>',
+                    `#include <worldpos_vertex>
+                     vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;`
+                );
+
+                shader.fragmentShader = `
+                    uniform float u_appear_progress;
+                    uniform float u_effect_top_y;
+                    uniform float u_effect_range;
+                    varying vec3 vWorldPosition;
+                \n` + shader.fragmentShader;
+
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <dithering_fragment>',
+                    `#include <dithering_fragment>
+                    
+                    // **PERBAIKAN: Logika shader untuk kemunculan dari atas ke bawah**
+                    float currentYThreshold = u_effect_top_y - (u_effect_range * u_appear_progress);
+                    
+                    float fade = smoothstep(
+                        currentYThreshold,
+                        currentYThreshold + 15.0, // 15.0 = kelembutan tepi
+                        vWorldPosition.y
+                    );
+
+                    if (fade < 0.01) discard;
+                    gl_FragColor.a *= fade;
+                    `
+                );
+            };
+        }
 
         function transitionToMainScene() {
             document.getElementById('sceneCanvas').style.display = 'none';
@@ -312,6 +360,13 @@
             canvas.addEventListener('mouseup', (e) => handleMouseUp3D(e));
             canvas.addEventListener('mousemove', (e) => handleMouseMove3D(e));
             canvas.addEventListener('mouseleave', (e) => handleMouseUp3D(e));
+            
+            gsap.to(appearUniforms.progress, {
+                value: 1.0,
+                duration: 2.5,
+                ease: 'power2.out'
+            });
+
             animateMainScene();
         }
 
@@ -319,6 +374,11 @@
             const ufoGroup = new THREE.Group();
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.2 });
             const cockpitMat = new THREE.MeshStandardMaterial({ color: 0x99ddff, roughness: 0.1, transparent: true, opacity: 0.6 });
+            
+            // **PERBAIKAN: Gunakan parameter yang lebih sesuai untuk UFO**
+            applyAppearShader(bodyMat, 10.0, 20.0);
+            applyAppearShader(cockpitMat, 10.0, 20.0);
+
             const saucerGeo = new THREE.CylinderGeometry(4, 4, 1, 32);
             const saucer = new THREE.Mesh(saucerGeo, bodyMat);
             saucer.scale.y = 0.5;
@@ -328,7 +388,7 @@
             cockpit.position.y = 0.25;
             ufoGroup.add(cockpit);
             const bottomGeo = new THREE.SphereGeometry(1.5, 32, 16, 0, Math.PI * 2, Math.PI/2, Math.PI / 2);
-            const bottom = new THREE.Mesh(bottomGeo, bodyMat);
+            const bottom = new THREE.Mesh(bottomGeo, bodyMat); 
             bottom.position.y = -0.25;
             ufoGroup.add(bottom);
             return ufoGroup;
@@ -376,7 +436,11 @@
         
         function setupAsteroids(geometry, boundingSphere) {
             const material = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8, metalness: 0.2 });
-            const count = 1000;
+            
+            // **PERBAIKAN: Gunakan parameter yang sesuai untuk asteroid**
+            applyAppearShader(material, 500.0, 1000.0);
+
+            const count = 100;
             const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
             const dummy = new THREE.Object3D();
             const baseRadius = boundingSphere.radius;
