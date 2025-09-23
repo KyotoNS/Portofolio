@@ -66,7 +66,7 @@
 
         let asteroidGeometry = null;
         let asteroidBoundingSphere = null; 
-        let keycapsGeometry = null;
+        let keycapsModel = null; // Diubah untuk menampung seluruh model
         let assetsLoaded = false; 
 
         // Objek untuk mengontrol animasi kemunculan via GSAP
@@ -134,17 +134,12 @@
             // Memuat objek keycaps
             loader.load( 'keycapsW.obj',
                 (object) => {
-                    let originalMesh;
-                    object.traverse((child) => { if (child.isMesh) { originalMesh = child; } });
-                    if (originalMesh) {
-                        keycapsGeometry = originalMesh.geometry;
-                    } else {
-                        console.warn('keycaps.obj tidak berisi mesh, menggunakan fallback.');
-                        keycapsGeometry = new THREE.BoxGeometry(2, 1, 2);
-                    }
+                    keycapsModel = object; // Simpan seluruh grup objek, bukan hanya geometrinya
                 }, undefined, (error) => {
-                    console.error('Gagal memuat keycaps.obj, menggunakan fallback.', error);
-                    keycapsGeometry = new THREE.BoxGeometry(2, 1, 2); // Geometri fallback
+                    console.error('Gagal memuat keycapsW.obj, menggunakan fallback.', error);
+                    // Fallback membuat geometri sederhana jika model gagal dimuat
+                    const fallbackGeo = new THREE.BoxGeometry(2, 1, 2);
+                    keycapsModel = new THREE.Mesh(fallbackGeo, new THREE.MeshStandardMaterial({color: 0xff0000}));
                 }
             );
         }
@@ -478,9 +473,13 @@
         const starfallColors = [new THREE.Color(0x89CFF0), new THREE.Color(0xFFD700), new THREE.Color(0xFFFFFF), new THREE.Color(0xFF6347), new THREE.Color(0x98FF98)];
         const MAX_TRAIL_POINTS = 50;
         
+        // ================== PENGATURAN OBJEK KEYCAPS ==================
+        const keycapsScale = 1.5;   // Atur ukuran objek
+        const keycapsPosition = new THREE.Vector3(0, 5, -25); // Atur Posisi X, Y, Z
+        const keycapsRotation = new THREE.Vector3(0, Math.PI / 4, 0); // Atur Rotasi X, Y, Z (dalam radian)
+        // =============================================================
+        
         let keycapsObject;
-        const keycapsDistance = 20; // Atur jarak di depan UFO
-        const keycapsScale = 50;   // Atur ukuran objek
         
         let isMouseDown3D = false;
         let previousMousePosition = { x: 0, y: 0 };
@@ -607,23 +606,28 @@
         }
         
         function createKeycapsObject() {
-            if (!keycapsGeometry) {
-                console.error("Geometri keycaps tidak dimuat.");
+            if (!keycapsModel) {
+                console.error("Model keycaps tidak dimuat.");
                 return;
             }
-            const material = new THREE.MeshStandardMaterial({
-                color: 0xcccccc,
-                metalness: 0.7,
-                roughness: 0.4
-            });
-            applyAppearShader(material, 15.0, 30.0);
-            keycapsObject = new THREE.Mesh(keycapsGeometry, material);
-            keycapsObject.scale.set(keycapsScale, keycapsScale, keycapsScale);
+            keycapsObject = keycapsModel;
             
-            // Atur posisi statis di depan titik spawn UFO
-            const forward = new THREE.Vector3(0, 0, -1);
-            // UFO spawn di (0,0,0), jadi posisi keycaps adalah:
-            keycapsObject.position.copy(forward).multiplyScalar(keycapsDistance);
+            // Terapkan shader ke material yang sudah ada, JANGAN diganti
+            keycapsObject.traverse((child) => {
+                if (child.isMesh) {
+                    // Pastikan material adalah array atau objek tunggal
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(mat => applyAppearShader(mat, 15.0, 30.0));
+                    } else if (child.material) {
+                        applyAppearShader(child.material, 15.0, 30.0);
+                    }
+                }
+            });
+
+            // Terapkan transformasi dari variabel
+            keycapsObject.scale.set(keycapsScale, keycapsScale, keycapsScale);
+            keycapsObject.position.copy(keycapsPosition);
+            keycapsObject.rotation.set(keycapsRotation.x, keycapsRotation.y, keycapsRotation.z);
 
             scene.add(keycapsObject);
         }
