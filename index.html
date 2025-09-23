@@ -66,6 +66,7 @@
 
         let asteroidGeometry = null;
         let asteroidBoundingSphere = null; 
+        let keycapsGeometry = null;
         let assetsLoaded = false; 
 
         // Objek untuk mengontrol animasi kemunculan via GSAP
@@ -127,6 +128,23 @@
                     asteroidGeometry = new THREE.SphereGeometry(2, 8, 8);
                     asteroidGeometry.computeBoundingSphere();
                     asteroidBoundingSphere = asteroidGeometry.boundingSphere.clone();
+                }
+            );
+
+            // Memuat objek keycaps
+            loader.load( 'keycapsW.obj',
+                (object) => {
+                    let originalMesh;
+                    object.traverse((child) => { if (child.isMesh) { originalMesh = child; } });
+                    if (originalMesh) {
+                        keycapsGeometry = originalMesh.geometry;
+                    } else {
+                        console.warn('keycaps.obj tidak berisi mesh, menggunakan fallback.');
+                        keycapsGeometry = new THREE.BoxGeometry(2, 1, 2);
+                    }
+                }, undefined, (error) => {
+                    console.error('Gagal memuat keycaps.obj, menggunakan fallback.', error);
+                    keycapsGeometry = new THREE.BoxGeometry(2, 1, 2); // Geometri fallback
                 }
             );
         }
@@ -460,6 +478,10 @@
         const starfallColors = [new THREE.Color(0x89CFF0), new THREE.Color(0xFFD700), new THREE.Color(0xFFFFFF), new THREE.Color(0xFF6347), new THREE.Color(0x98FF98)];
         const MAX_TRAIL_POINTS = 50;
         
+        let keycapsObject;
+        const keycapsDistance = 20; // Atur jarak di depan UFO
+        const keycapsScale = 50;   // Atur ukuran objek
+        
         let isMouseDown3D = false;
         let previousMousePosition = { x: 0, y: 0 };
         let canControlUFO = false;
@@ -534,6 +556,8 @@
             plane = createUFO();
             scene.add(plane);
             
+            createKeycapsObject();
+
             asteroidField = new THREE.Group();
             scene.add(asteroidField);
 
@@ -580,6 +604,28 @@
             bottom.position.y = -0.25;
             ufoGroup.add(bottom);
             return ufoGroup;
+        }
+        
+        function createKeycapsObject() {
+            if (!keycapsGeometry) {
+                console.error("Geometri keycaps tidak dimuat.");
+                return;
+            }
+            const material = new THREE.MeshStandardMaterial({
+                color: 0xcccccc,
+                metalness: 0.7,
+                roughness: 0.4
+            });
+            applyAppearShader(material, 15.0, 30.0);
+            keycapsObject = new THREE.Mesh(keycapsGeometry, material);
+            keycapsObject.scale.set(keycapsScale, keycapsScale, keycapsScale);
+            
+            // Atur posisi statis di depan titik spawn UFO
+            const forward = new THREE.Vector3(0, 0, -1);
+            // UFO spawn di (0,0,0), jadi posisi keycaps adalah:
+            keycapsObject.position.copy(forward).multiplyScalar(keycapsDistance);
+
+            scene.add(keycapsObject);
         }
 
         function createStarTexture() {
