@@ -35,7 +35,6 @@
     <canvas id="mainSceneCanvas"></canvas>
     <div id="infoText" class="info">Gunakan WASD/Panah untuk Bergerak | Spasi/Shift untuk Naik/Turun | Tahan Klik Kiri untuk Memutar Kamera</div>
 
-    <!-- Import Map untuk Three.js dan GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/gsap.min.js"></script>
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
@@ -593,15 +592,30 @@
                 isMouseDown3D = false;
             }
         }
+        
+        // ================== PERBAIKAN DI SINI ==================
         function handleMouseMove3D(event) {
             if (!isMouseDown3D) return;
+
             const deltaX = event.clientX - previousMousePosition.x;
             const deltaY = event.clientY - previousMousePosition.y;
-            cameraPivot.rotation.y -= deltaX * 0.005;
-            cameraPivot.rotation.x -= deltaY * 0.005;
+
+            // Rotasi Kiri/Kanan (Yaw) selalu di sekitar sumbu Y dunia (world's Y axis)
+            // Ini membuat belokan ke kiri dan kanan tetap konsisten.
+            const yawAngle = -deltaX * 0.005;
+            cameraPivot.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), yawAngle);
+
+            // Rotasi Naik/Turun (Pitch) dihitung berdasarkan sumbu X lokal kamera (vector "kanan")
+            // Sumbu ini kemudian digunakan untuk rotasi di ruang dunia (world space).
+            // Ini memperbaiki masalah kontrol terbalik saat berputar 180 derajat.
+            const pitchAngle = -deltaY * 0.005;
+            const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraPivot.quaternion);
+            cameraPivot.rotateOnWorldAxis(rightVector, pitchAngle);
+
             previousMousePosition.x = event.clientX;
             previousMousePosition.y = event.clientY;
         }
+        // =======================================================
 
         function animateMainScene() {
             requestAnimationFrame(animateMainScene);
@@ -670,4 +684,3 @@
     </script>
 </body>
 </html>
-
