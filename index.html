@@ -92,7 +92,11 @@
 
         let particles = []; // Array untuk partikel ledakan
         let shockwave = { radius: 0, alpha: 0, lineWidth: 0 }; // Objek untuk shockwave
-
+        
+        let mainStarfall = null;
+        let spiralStarfalls = [];
+        const numSpiralStars = 5;
+        
         const iconPaths = ["M0,-20 Q15,-15 10,0 Q5,15 0,20 Q-5,15 -10,0 Q-15,-15 0,-20 Z M0,-10 Q5,-5 0,0 Q-5,-5 0,-10 Z","M-15,5 Q-5,15 0,5 Q5,-5 -5,-15 M15,5 Q5,15 0,5 Q-5,-5 5,-15","M0,-17.5 L15,2.5 L0,7.5 L-15,2.5 Z M-8,-2.5 L0,17.5 L8,-2.5","M-2.5,15 A15,15 0 0,0 15,-2.5 M-15,2.5 A10,10 0 0,1 2.5,-15 M-10,-10 L5,5","M0,-17.5 C15,-7.5 8,17.5 0,12.5 C-8,17.5 -15,-7.5 0,-17.5 Z","M0,-20 L0,20 M-15,-10 L15,10 M-15,10 L15,-10 M-9,-17 L9,17 M-9,17 L9,-17","M0,-20 L17,0 L0,20 L-17,0 Z M0,-10 L8.5,0 L0,10 L-8.5,0 Z","M0,0 A13,13 0 1,0 0,1 M-13,0 L13,0 M0,-15 L0,15","M-13,-13 L13,13 M-13,13 L13,-13 M0,-20 L0,20"];
         
         const manager = new THREE.LoadingManager();
@@ -127,9 +131,95 @@
             );
         }
 
-        function setupLoader() { width = loaderCanvas.width = window.innerWidth; height = loaderCanvas.height = window.innerHeight; create2DStars(); loaderCanvas.addEventListener('click', handleLoaderClick); loaderCanvas.addEventListener('mousemove', handleLoaderMouseMove); }
+        function setupLoader() { width = loaderCanvas.width = window.innerWidth; height = loaderCanvas.height = window.innerHeight; create2DStars(); createStarfall(); loaderCanvas.addEventListener('click', handleLoaderClick); loaderCanvas.addEventListener('mousemove', handleLoaderMouseMove); }
         function create2DStars() { stars2D = []; for (let i = 0; i < numStars2D; i++) { stars2D.push({ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * 1.5 + 0.5, alpha: Math.random(), twinkleSpeed: Math.random() * 0.03 + 0.01 }); } }
         function draw2DStars() { const centerX = width/2, centerY = height/2; for(const star of stars2D){ if(animationState==='warping'){ const dx=star.x-centerX, dy=star.y-centerY, endX=star.x+dx*warpFactor*0.5, endY=star.y+dy*warpFactor*0.5; ctx.beginPath(); ctx.moveTo(star.x,star.y); ctx.lineTo(endX,endY); ctx.strokeStyle=`rgba(255,255,255,${1-warpFactor})`; ctx.lineWidth=star.radius; ctx.stroke(); }else{ star.alpha=Math.abs(Math.sin(time*star.twinkleSpeed)); ctx.beginPath(); ctx.arc(star.x,star.y,star.radius,0,Math.PI*2); ctx.fillStyle=`rgba(255,255,255,${star.alpha})`; ctx.fill(); }}}
+        
+        function createStarfall() {
+            const angle = Math.random() * Math.PI * 2;
+            const startX = width / 2 - Math.cos(angle) * Math.max(width, height);
+            const startY = height / 2 - Math.sin(angle) * Math.max(width, height);
+
+            mainStarfall = {
+                x: startX,
+                y: startY,
+                angle: angle,
+                speed: 8 + Math.random() * 4,
+                trail: [],
+                radius: 2.5
+            };
+
+            spiralStarfalls = [];
+            for (let i = 0; i < numSpiralStars; i++) {
+                spiralStarfalls.push({
+                    angleOffset: (Math.PI * 2 / numSpiralStars) * i,
+                    radius: 1,
+                    orbitRadius: 20 + Math.random() * 15,
+                    orbitSpeed: 0.05 + Math.random() * 0.05,
+                    trail: []
+                });
+            }
+        }
+
+        function updateStarfall() {
+            if (!mainStarfall) return;
+
+            // Update main starfall
+            mainStarfall.x += Math.cos(mainStarfall.angle) * mainStarfall.speed;
+            mainStarfall.y += Math.sin(mainStarfall.angle) * mainStarfall.speed;
+            mainStarfall.trail.unshift({ x: mainStarfall.x, y: mainStarfall.y });
+            if (mainStarfall.trail.length > 60) {
+                mainStarfall.trail.pop();
+            }
+
+            // Update spiral starfalls
+            spiralStarfalls.forEach(star => {
+                const angle = star.angleOffset + time * star.orbitSpeed;
+                const x = mainStarfall.x + Math.cos(angle) * star.orbitRadius;
+                const y = mainStarfall.y + Math.sin(angle) * star.orbitRadius;
+                star.trail.unshift({ x: x, y: y });
+                if (star.trail.length > 30) {
+                    star.trail.pop();
+                }
+            });
+            
+            // Reset if out of bounds
+            const margin = 200;
+            if (mainStarfall.x < -margin || mainStarfall.x > width + margin || mainStarfall.y < -margin || mainStarfall.y > height + margin) {
+                createStarfall();
+            }
+        }
+
+        function drawStarfall() {
+            if (!mainStarfall || mainStarfall.trail.length < 2) return;
+
+            const drawTrail = (star) => {
+                if (star.trail.length < 2) return;
+                const head = star.trail[0];
+                const tail = star.trail[star.trail.length - 1];
+
+                const gradient = ctx.createLinearGradient(head.x, head.y, tail.x, tail.y);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+                ctx.beginPath();
+                ctx.moveTo(star.trail[0].x, star.trail[0].y);
+                for (let i = 1; i < star.trail.length; i++) {
+                    ctx.lineWidth = star.radius * (1 - i / star.trail.length) * 2;
+                    ctx.lineTo(star.trail[i].x, star.trail[i].y);
+                }
+                ctx.strokeStyle = gradient;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+                ctx.fill();
+            };
+            
+            drawTrail(mainStarfall);
+            spiralStarfalls.forEach(drawTrail);
+        }
         
         function drawSolarSystem() { 
             ctx.save(); 
@@ -260,6 +350,10 @@
             } 
             ctx.clearRect(0, 0, width, height); 
             draw2DStars(); 
+            if (animationState !== 'warping' && animationState !== 'faded') {
+                updateStarfall();
+                drawStarfall();
+            }
             drawSolarSystem(); 
             drawParticles();
             drawShockwave();
@@ -362,6 +456,10 @@
         const collisionNormal = new THREE.Vector3();
         const reflectionVector = new THREE.Vector3();
 
+        let starfallGroup, mainStarfall3D, spiralStarfalls3D = [];
+        const starfallColors = [new THREE.Color(0x89CFF0), new THREE.Color(0xFFD700), new THREE.Color(0xFFFFFF), new THREE.Color(0xFF6347), new THREE.Color(0x98FF98)];
+        const MAX_TRAIL_POINTS = 50;
+        
         let isMouseDown3D = false;
         let previousMousePosition = { x: 0, y: 0 };
         let canControlUFO = false;
@@ -441,6 +539,7 @@
 
             create3DStars();
             createAsteroidField();
+            create3DStarfall(); 
             document.addEventListener('keydown', handleKeyDown);
             document.addEventListener('keyup', handleKeyUp);
             canvas.addEventListener('mousedown', (e) => handleMouseDown3D(e));
@@ -523,6 +622,137 @@
             createStarLayer(50000, 2.0, [0.7, 0.9]);
         }
         
+        function create3DStarfall() {
+            starfallGroup = new THREE.Group();
+            scene.add(starfallGroup);
+
+            const createTrail = () => {
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(MAX_TRAIL_POINTS * 3);
+                const colors = new Float32Array(MAX_TRAIL_POINTS * 3);
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                geometry.setDrawRange(0, 0);
+
+                const material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, transparent: true });
+                const trailLine = new THREE.Line(geometry, material);
+                return trailLine;
+            };
+
+            const mainGeometry = new THREE.SphereGeometry(0.8, 16, 16);
+            const mainMaterial = new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending });
+            mainStarfall3D = new THREE.Mesh(mainGeometry, mainMaterial);
+            mainStarfall3D.userData.trail = createTrail();
+            mainStarfall3D.userData.trailPoints = [];
+            scene.add(mainStarfall3D.userData.trail);
+            
+            const mainLight = new THREE.PointLight(0xffffff, 1.5, 50);
+            mainStarfall3D.add(mainLight);
+            starfallGroup.add(mainStarfall3D);
+
+            const numSpiral = 6;
+            const spiralGeometry = new THREE.SphereGeometry(0.2, 12, 12);
+            for (let i = 0; i < numSpiral; i++) {
+                const spiralMaterial = new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending });
+                const spiralStar = new THREE.Mesh(spiralGeometry, spiralMaterial);
+                const angle = (i / numSpiral) * Math.PI * 2;
+                const orbitRadius = 7 + Math.random() * 3;
+                
+                spiralStar.position.set(Math.cos(angle) * orbitRadius, 0, Math.sin(angle) * orbitRadius);
+                spiralStar.userData.angle = angle;
+                spiralStar.userData.orbitRadius = orbitRadius;
+                spiralStar.userData.speed = 2.0 + Math.random() * 1.0;
+                spiralStar.userData.trail = createTrail();
+                spiralStar.userData.trailPoints = [];
+
+                spiralStarfalls3D.push(spiralStar);
+                starfallGroup.add(spiralStar);
+                scene.add(spiralStar.userData.trail);
+            }
+            
+            resetStarfallPosition();
+        }
+
+        function resetStarfallPosition() {
+            const startX = plane.position.x + (Math.random() - 0.5) * 400;
+            const startY = plane.position.y + 200 + Math.random() * 100;
+            const startZ = plane.position.z + (Math.random() - 0.5) * 400;
+            starfallGroup.position.set(startX, startY, startZ);
+
+            const endX = plane.position.x + (Math.random() - 0.5) * 200;
+            const endY = plane.position.y - 150;
+            const endZ = plane.position.z + (Math.random() - 0.5) * 200;
+            const direction = new THREE.Vector3(endX, endY, endZ).sub(starfallGroup.position).normalize();
+            starfallGroup.userData.velocity = direction.multiplyScalar(3 + Math.random() * 2);
+            
+            const mainColor = starfallColors[Math.floor(Math.random() * starfallColors.length)];
+            mainStarfall3D.material.color.set(mainColor);
+            mainStarfall3D.children[0].color.set(mainColor); 
+            mainStarfall3D.userData.trailPoints = [];
+            mainStarfall3D.userData.trail.geometry.setDrawRange(0, 0);
+
+            spiralStarfalls3D.forEach(star => {
+                star.material.color.set(starfallColors[Math.floor(Math.random() * starfallColors.length)]);
+                star.userData.trailPoints = [];
+                star.userData.trail.geometry.setDrawRange(0, 0);
+            });
+
+            const mainLight = mainStarfall3D.children[0];
+            gsap.fromTo(mainLight, { intensity: 0 }, { intensity: 5, duration: 0.3, yoyo: true, repeat: 1, ease: 'power2.inOut' });
+        }
+        
+        function update3DStarfall(delta) {
+            if (!starfallGroup || !starfallGroup.userData.velocity) return;
+
+            starfallGroup.position.add(starfallGroup.userData.velocity.clone().multiplyScalar(delta * 60));
+
+            const updateStarAndTrail = (star, maxLength) => {
+                const trail = star.userData.trail;
+                const trailPoints = star.userData.trailPoints;
+                const worldPos = new THREE.Vector3();
+                star.getWorldPosition(worldPos);
+                
+                trailPoints.push(worldPos.clone());
+                if (trailPoints.length > maxLength) {
+                    trailPoints.shift();
+                }
+
+                const positions = trail.geometry.attributes.position.array;
+                const colors = trail.geometry.attributes.color.array;
+                
+                for(let i = 0; i < trailPoints.length; i++) {
+                    const point = trailPoints[i];
+                    positions[i * 3] = point.x;
+                    positions[i * 3 + 1] = point.y;
+                    positions[i * 3 + 2] = point.z;
+
+                    const fade = i / trailPoints.length;
+                    const starColor = star.material.color;
+                    colors[i * 3] = starColor.r * fade;
+                    colors[i * 3 + 1] = starColor.g * fade;
+                    colors[i * 3 + 2] = starColor.b * fade;
+                }
+
+                trail.geometry.attributes.position.needsUpdate = true;
+                trail.geometry.attributes.color.needsUpdate = true;
+                trail.geometry.setDrawRange(0, trailPoints.length);
+            };
+
+            updateStarAndTrail(mainStarfall3D, MAX_TRAIL_POINTS);
+
+            spiralStarfalls3D.forEach(star => {
+                star.userData.angle += star.userData.speed * delta;
+                star.position.x = Math.cos(star.userData.angle) * star.userData.orbitRadius;
+                star.position.z = Math.sin(star.userData.angle) * star.userData.orbitRadius;
+                star.position.y = Math.sin(star.userData.angle * 2.5) * 1.5;
+                updateStarAndTrail(star, MAX_TRAIL_POINTS / 2);
+            });
+
+            if (starfallGroup.position.y < plane.position.y - 200) {
+                resetStarfallPosition();
+            }
+        }
+        
         function setupAsteroids(geometry, boundingSphere) {
             const material = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8, metalness: 0.2 });
             
@@ -593,21 +823,15 @@
             }
         }
         
-        // ================== PERBAIKAN DI SINI ==================
         function handleMouseMove3D(event) {
             if (!isMouseDown3D) return;
 
             const deltaX = event.clientX - previousMousePosition.x;
             const deltaY = event.clientY - previousMousePosition.y;
-
-            // Rotasi Kiri/Kanan (Yaw) selalu di sekitar sumbu Y dunia (world's Y axis)
-            // Ini membuat belokan ke kiri dan kanan tetap konsisten.
+            
             const yawAngle = -deltaX * 0.005;
             cameraPivot.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), yawAngle);
-
-            // Rotasi Naik/Turun (Pitch) dihitung berdasarkan sumbu X lokal kamera (vector "kanan")
-            // Sumbu ini kemudian digunakan untuk rotasi di ruang dunia (world space).
-            // Ini memperbaiki masalah kontrol terbalik saat berputar 180 derajat.
+            
             const pitchAngle = -deltaY * 0.005;
             const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraPivot.quaternion);
             cameraPivot.rotateOnWorldAxis(rightVector, pitchAngle);
@@ -615,11 +839,12 @@
             previousMousePosition.x = event.clientX;
             previousMousePosition.y = event.clientY;
         }
-        // =======================================================
 
         function animateMainScene() {
             requestAnimationFrame(animateMainScene);
             const delta = clock.getDelta();
+            
+            update3DStarfall(delta);
             
             const localTargetVelocity = new THREE.Vector3();
             if(canControlUFO) {
@@ -684,3 +909,4 @@
     </script>
 </body>
 </html>
+
